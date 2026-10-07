@@ -1,0 +1,24 @@
+{
+  "tarih": "2026-10-07",
+  "otomatik": true,
+  "pazar": "Dünya talebi büyüme bölgesinde (nabız +0,28, 3 ay önce +0,30; 25/39 gösterge iyileşiyor, güven orta). Talep normalin üzerinde ve dengeli seyrediyor; ivme belirgin değil. Ciroda mevcut eğilimin sürmesi beklenir; yön değişimini önce öncü göstergeler haber verir. Göstergelerin çoğu hafif yukarı eğilimli. Normalden en güçlü seyredenler: ABD makine sanayi yeni siparişleri (toplam) (yıllık +15,8%), ABD metal işleme makinası yeni siparişleri (yıllık +12,1%). En zayıflar: ABD toplam inşaat harcaması (yıllık -2,2%), Türkiye tarım makinası üretimi (yıllık -21,3%). Avrupa talebi büyüme bölgesinde (nabız +0,08, 3 ay önce +0,03; 12/17 gösterge iyileşiyor, güven orta). Amerika talebi büyüme bölgesinde (nabız +0,38, 3 ay önce +0,42; 9/14 gösterge iyileşiyor, güven düşük). Asya talebi olağanın üzerinde ama ivme kaybediyor (nabız +0,36, 3 ay önce +0,42; 2/5 gösterge iyileşiyor, güven orta). Türkiye talebi olağanın altında ama yukarı dönüyor (nabız -0,36, 3 ay önce -0,39; 5/9 gösterge iyileşiyor, güven orta). Türkiye için: Talep normalin altında ve yatay seyrediyor; belirgin bir dönüş henüz yok. Öncü göstergelerdeki iyileşme sürerse ciro artma trendine girebilir; bu takip edilmeli. Göstergelerin çoğu hafif yukarı eğilimli. Türkiye'de iyileşenler: Türkiye kesici takım ve el aleti üretimi, OECD öncü göstergesi: Türkiye, Türkiye tarım makinası üretimi, Türkiye hidrolik/pnömatik ekipman üretimi. Kötüleşenler: Türkiye inşaat üretimi, Türkiye iş makinası üretimi, Türkiye kaldırma-taşıma ekipmanı üretimi, Türkiye CNC/takım tezgahı üretimi.",
+  "dikkat": [
+    "Mazot fiyatı (ABD): son 3 ayda geçen yılın aynı dönemine göre +60,7% (lojistik baskısı artıyor).",
+    "Brent petrol: son 3 ayda geçen yılın aynı dönemine göre +39,6% (maliyet baskısı artıyor).",
+    "Bakır: son 3 ayda geçen yılın aynı dönemine göre +39,4% (maliyet baskısı artıyor).",
+    "Alüminyum: son 3 ayda geçen yılın aynı dönemine göre +35,3% (maliyet baskısı artıyor).",
+    "Okyanus konteyner/yük taşıma fiyatları: son 3 ayda geçen yılın aynı dönemine göre +29,7% (lojistik baskısı artıyor).",
+    "Çelik fiyatları yıllık +16,5% artarken hidrolik silindir satış fiyatları +7,4% artmış: üretici marjları sıkışıyor olabilir."
+  ],
+  "teknoloji": [
+    "Kesici takım, matkap, elmas: Sandvik Coromant Expands Its CoroDrill Dura 462 Line (Advanced Manufacturing, 2026-10-07)",
+    "Kesici takım, matkap, elmas: Mitsubishi Materials to Integrate Domestic Cutting Tools Sales Businesses into New Subsidiary (www.marketscreener.com, 2026-10-07)",
+    "Modern üretim (Endüstri 4.0): Atomic Machines Emerges from Stealth with $250 Million to Launch the Matter Compiler, an AI-Native Manufacturing System That Builds Micro-Machines from Code (Manufacturing Tomorrow, 2026-10-07)",
+    "Modern üretim (Endüstri 4.0): Tulip Brings AI to the Factory Floor at Operations Calling 2026 (Manufacturing Tomorrow, 2026-10-07)",
+    "Montaj hattı ve otomasyon: Harmonic Drive to share how integrated actuators can reduce engineering at RoboBusiness (The Robot Report, 2026-10-07)",
+    "Montaj hattı ve otomasyon: Boston Dynamics appoints former Amazon exec Rohit Prasad as new CEO (The Robot Report, 2026-10-06)",
+    "Yeni hidrolik ürünler: Tesla Unveils Next-Gen Heat Pump and Drivetrain for Semi (Not a Tesla App, 2026-09-26)",
+    "CNC tezgah ve işleme: US metalworking machinery orders total $605.8 million in July 2026 (Today's Medical Developments, 2026-10-07)",
+    "CNC tezgah ve işleme: Mazak Innovation Hub to Accelerate Machine Tool R&D by 2027 (ETMM, 2026-10-06)"
+  ]
+}

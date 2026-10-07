@@ -1,0 +1,538 @@
+<title>Hidrolik Pazar Radarı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: yapışkan bölüm menüsü + tek sütun pano; önce bölge nabızları (özet), sonra kanıt katmanları (göstergeler, maliyet, borsa, ciro, ticaret, haber) */
+:root{
+  --bg:#f3f4f5; --surface:#ffffff; --surface-2:#eef0f2; --fg:#14181c; --fg-2:#4f5861; --muted:#7a838c; --line:#dde1e5; --grid:#e9ecef;
+  --accent:#1d5d8f;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --good:#0ca30c; --warn:#c98500; --serious:#ec835a; --crit:#d03b3b;
+  --div-pos:#2a78d6; --div-neg:#e34948; --div-mid:#f0efec;
+  --display:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121518; --surface:#1a1e22; --surface-2:#22272c; --fg:#eef1f3; --fg-2:#b5bdc5; --muted:#8a939c; --line:#2e353c; --grid:#262c32;
+  --accent:#6aa9dc; --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --good:#2fbf2f; --warn:#fab219; --serious:#ec835a; --crit:#e66767;
+  --div-pos:#3987e5; --div-neg:#e66767; --div-mid:#383835; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121518; --surface:#1a1e22; --surface-2:#22272c; --fg:#eef1f3; --fg-2:#b5bdc5; --muted:#8a939c; --line:#2e353c; --grid:#262c32;
+  --accent:#6aa9dc; --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --good:#2fbf2f; --warn:#fab219; --serious:#ec835a; --crit:#e66767;
+  --div-pos:#3987e5; --div-neg:#e66767; --div-mid:#383835; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--body)}
+a{color:var(--accent)}
+h1,h2,h3{font-family:var(--display);margin:0;line-height:1.15;text-wrap:balance}
+h1{font-size:clamp(24px,4vw,32px);font-weight:700;letter-spacing:.01em}
+h2{font-size:21px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.lbl{font:600 11px/1.2 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 60px;display:flex;flex-direction:column;gap:36px}
+header.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+header.top p{color:var(--fg-2);max-width:70ch}
+nav.bolum{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding:8px 16px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+nav.bolum a{flex:none;text-decoration:none;color:var(--fg-2);font:500 13px var(--body);padding:5px 10px;border-radius:4px}
+nav.bolum a:hover,nav.bolum a:focus-visible{background:var(--surface-2);color:var(--fg);outline:none}
+section{display:flex;flex-direction:column;gap:14px;min-width:0;scroll-margin-top:56px}
+.bas{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.bas p{color:var(--fg-2);font-size:14px;max-width:80ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px}
+/* Nabız kartları */
+.nabizlar{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.nk{padding:14px 14px 10px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.nk .ust{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.nk .skor{font:500 30px/1 var(--mono);font-variant-numeric:tabular-nums}
+.pill{display:inline-flex;align-items:center;gap:5px;font:600 12px/1 var(--body);padding:4px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.pill svg{width:10px;height:10px}
+.d-gb,.d-b{color:var(--good)} .d-y{color:var(--fg-2)} .d-d{color:var(--serious)} .d-gd{color:var(--crit)}
+.olcek{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--div-neg),var(--div-mid) 50%,var(--div-pos))}
+.olcek i{position:absolute;top:-4px;width:3px;height:16px;background:var(--fg);border-radius:2px;transform:translateX(-50%)}
+.nk .alt{display:flex;justify-content:space-between;font-size:12px;color:var(--fg-2);gap:6px;flex-wrap:wrap}
+.nk.dunya{grid-column:1/-1;display:grid;grid-template-columns:minmax(200px,280px) 1fr;gap:18px;align-items:center}
+@media (max-width:640px){.nk.dunya{grid-template-columns:1fr}}
+/* Özet listeleri */
+.ozet{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.ozet .panel{padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.ozet ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.ozet li{display:flex;justify-content:space-between;gap:10px;font-size:14px}
+.ozet li span:first-child{min-width:0}
+/* Filtre çipleri */
+.cipler{display:flex;flex-wrap:wrap;gap:6px}
+.cip{font:500 13px var(--body);padding:5px 11px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--fg-2);cursor:pointer}
+.cip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.cip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Tablolar */
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font:600 11px var(--display);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);white-space:nowrap;background:var(--surface)}
+td.r,th.r{text-align:right}
+tr.satir{cursor:pointer}
+tr.satir:hover td{background:var(--surface-2)}
+tr.satir:focus-visible td{background:var(--surface-2);outline:none}
+tr.detay td{background:var(--surface-2);padding:14px}
+.pos{color:var(--good)} .neg{color:var(--crit)}
+.zbar{position:relative;width:110px;height:12px}
+.zbar::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+.zbar i{position:absolute;top:2px;height:8px;border-radius:2px}
+.katman{font:600 10px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--fg-2);border:1px solid var(--line);border-radius:3px;padding:1px 5px;white-space:nowrap}
+/* Kartlar (maliyet) */
+.kartlar{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.mk{padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mk .deger{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+/* Grafikler */
+.grafik{position:relative;min-width:0}
+.grafik svg{display:block;width:100%;height:auto;overflow:visible}
+.ipucu{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 8px;font:12px/1.4 var(--mono);color:var(--fg);box-shadow:0 2px 8px rgb(0 0 0 / .12);white-space:nowrap;z-index:3}
+.lejant{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--fg-2)}
+.lejant i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+/* Haberler */
+.haberler{display:flex;flex-direction:column}
+.haber{display:grid;grid-template-columns:86px 1fr;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.haber a{color:var(--fg);text-decoration:none;font-weight:500}
+.haber a:hover{text-decoration:underline}
+.haber .meta{font-size:12px;color:var(--muted)}
+.ticaret{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.ticaret .panel{padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.yontem{padding:16px 18px;display:flex;flex-direction:column;gap:8px;color:var(--fg-2);font-size:14px}
+.yontem ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:5px;max-width:90ch}
+.uyari{padding:12px 14px;border-left:4px solid var(--warn);background:var(--surface);border-radius:4px;font-size:14px;color:var(--fg-2)}
+/* Günün yorumu, sözlük, bilanço */
+.yorum{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.yorum p{max-width:85ch}
+.yorum ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;max-width:85ch}
+.sozluk{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.sozluk .panel{padding:14px 16px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--fg-2);min-width:0}
+.sozluk .panel h3{color:var(--fg)}
+.sozluk table{font-size:13px}
+.sozluk td{padding:4px 6px}
+.sapma{font:500 12px var(--body);white-space:nowrap}
+dl.kalem{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0;font-size:13px}
+dl.kalem dt{font-weight:600;color:var(--fg)} dl.kalem dd{margin:0;color:var(--fg-2)}
+/* Yön ve beklenti */
+.beklenti{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:12px;align-items:start}
+@media (max-width:820px){.beklenti{grid-template-columns:1fr}}
+.evreler{display:flex;flex-direction:column;gap:10px;min-width:0}
+.ek{padding:12px 14px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.ek .ust{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ek .ust h3{margin-right:auto}
+.ek p{font-size:14px;color:var(--fg-2);max-width:80ch}
+.evre{font:600 12px/1 var(--body);padding:4px 9px;border-radius:4px;color:var(--bg)}
+.e-Genişleme{background:var(--good)} .e-Toparlanma{background:var(--accent)} .e-Yavaşlama{background:var(--warn);color:#1a1a19} .e-Daralma{background:var(--crit)}
+.guven{font:500 12px var(--body);color:var(--fg-2)}
+.yay{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-2)}
+.yay span.cubuk{flex:0 1 160px;height:6px;border-radius:3px;background:var(--surface-2);position:relative;overflow:hidden}
+.yay span.cubuk i{position:absolute;inset:0 auto 0 0;background:var(--good)}
+.ek .liste{font-size:12px;color:var(--muted)}
+.ek.ana{border-color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){.olcek i{transition:left .4s}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span class="lbl">Sektör istihbaratı · her gün kendiliğinden güncellenir</span>
+      <h1>Hidrolik Pazar Radarı</h1>
+      <p>Hidrolik talebini belirleyen makine, tarım, inşaat, hammadde, borsa ve haber verilerini tek yerde toplar; her bölge için bir “talep nabzı” hesaplar.</p>
+    </div>
+    <div style="text-align:right"><div class="lbl">Son güncelleme</div><div class="num" id="guncelleme">yükleniyor…</div></div>
+  </header>
+
+  <nav class="bolum" aria-label="Bölümler">
+    <a href="#yorum">Günün yorumu</a><a href="#beklenti">Beklenti</a><a href="#nabiz">Nabız</a><a href="#degisen">Ne değişti</a><a href="#gostergeler">Göstergeler</a><a href="#maliyet">Maliyetler</a>
+    <a href="#lojistik">Lojistik</a><a href="#borsa">Borsa</a><a href="#ciro">Şirket ciroları</a><a href="#bilanco">Bilançolar</a><a href="#ticaret">Dış ticaret</a><a href="#haberler">Haberler</a><a href="#uretim">Üretim teknolojileri</a><a href="#sozluk">Rakamlar ne demek?</a><a href="#yontem">Yöntem</a>
+  </nav>
+
+  <section id="yorum" hidden>
+    <div class="bas"><h2>Günün yorumu</h2><p id="yorumTarih"></p></div>
+    <div class="panel yorum" id="yorumIcerik"></div>
+  </section>
+
+  <section id="beklenti">
+    <div class="bas"><h2>Yön ve beklenti</h2><p>Oran tahmini değil, yön tahmini: talep hangi evrede, göstergelerin ne kadarı aynı yönü gösteriyor ve bu ciro için ne anlama gelebilir.</p></div>
+    <div class="beklenti">
+      <div class="panel" style="padding:12px;min-width:0"><div class="grafik" id="evreGrafik"></div><p class="lbl" style="font-size:10px;padding:4px 6px">Yatay: talebin seviyesi (nabız) · Dikey: son 3 aydaki değişim (ivme)</p></div>
+      <div class="evreler" id="evreKart"></div>
+    </div>
+  </section>
+
+  <section id="nabiz">
+    <div class="bas"><h2>Talep nabzı</h2><p>0 = tarihsel ortalama. +1 normalin bir standart sapma üstü (güçlü büyüme), −1 bir standart sapma altı (güçlü daralma). Öncü göstergeler 1,5 kat ağırlıklı.</p></div>
+    <div class="nabizlar" id="nabizKartlar"></div>
+  </section>
+
+  <section id="degisen">
+    <div class="bas"><h2>Ne değişti?</h2><p>Talep tarafında normalden en çok sapan göstergeler ve hızla artan maliyetler.</p></div>
+    <div class="ozet" id="ozet"></div>
+  </section>
+
+  <section id="gostergeler">
+    <div class="bas"><h2>Göstergeler</h2><p>Satıra tıklayınca son 10 yılın grafiği ve göstergenin neden önemli olduğu açılır.</p></div>
+    <div class="cipler" id="bolgeCip" role="group" aria-label="Bölge filtresi"></div>
+    <div class="cipler" id="katmanCip" role="group" aria-label="Katman filtresi"></div>
+    <div class="panel tbl"><table id="gTablo"></table></div>
+  </section>
+
+  <section id="maliyet">
+    <div class="bas"><h2>Maliyetler ve fiyatlar</h2><p>Nabız skoruna girmez. Hammadde, yağ ve sektörün kendi satış fiyatlarındaki eğilim; yıllık değişim son 3 ayın ortalamasıyla.</p></div>
+    <div class="kartlar" id="maliyetKart"></div>
+  </section>
+
+  <section id="lojistik">
+    <div class="bas"><h2>Lojistik maliyetleri</h2><p>Deniz, hava ve kara navlunu ile yakıt fiyatları. Nabız skoruna girmez; ithal parça ve ihracat maliyetinin yönünü gösterir. Yıllık değişim son 3 ayın ortalamasıyla hesaplanır.</p></div>
+    <div class="kartlar" id="lojistikKart"></div>
+  </section>
+
+  <section id="borsa">
+    <div class="bas"><h2>Borsa</h2><p>Hisse fiyatları, yatırımcıların sektör beklentisini aylar önceden fiyatlar. Endeksler eşit ağırlıklı, 5 yıl önce = 100.</p></div>
+    <div class="panel" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div class="lejant" id="borsaLejant"></div>
+      <div class="grafik" id="borsaGrafik"></div>
+    </div>
+    <div class="panel tbl"><table id="hTablo"></table></div>
+  </section>
+
+  <section id="ciro">
+    <div class="bas"><h2>Şirket ciroları</h2><p>ABD borsa otoritesi SEC'e verilen çeyreklik raporlardan; bir önceki yılın aynı çeyreğine göre değişim.</p></div>
+    <div class="panel tbl"><table id="sTablo"></table></div>
+  </section>
+
+  <section id="bilanco">
+    <div class="bas"><h2>Bilançolar</h2><p>Şirketlerin son yayımlanan yıllık finansal tabloları. Satıra tıklayınca son 4–5 yılın kalem kalem dökümü açılır. Tutarlar şirketin raporlama para biriminde ve yaklaşık dolar karşılığıyla verilir.</p></div>
+    <div class="cipler" id="bilancoCip" role="group" aria-label="Şirket grubu"></div>
+    <div class="panel tbl"><table id="bTablo"></table></div>
+  </section>
+
+  <section id="ticaret">
+    <div class="bas"><h2>Dış ticaret</h2><p>Dünya ithalatı pazarın büyüklüğünü gösterir (milyon $, yıllık). Kaynak: ITC Trade Map.</p></div>
+    <div class="ticaret" id="ticaretKart"></div>
+  </section>
+
+  <section id="haberler">
+    <div class="bas"><h2>Haber radarı</h2><p>Son 14 günün haberleri, Google Haberler'den konu konu taranır.</p></div>
+    <div class="cipler" id="haberCip" role="group" aria-label="Haber konusu"></div>
+    <div class="panel" style="padding:4px 12px"><div class="haberler" id="haberListe"></div></div>
+  </section>
+
+  <section id="uretim">
+    <div class="bas"><h2>Üretim teknolojileri</h2><p>CNC tezgah, kesici takım, matkap ve elmas takımlar, yeni hidrolik ürünler, montaj hatları ve modern üretim sistemleri: sektörün üretim tarafının nabzı ve gündemi.</p></div>
+    <h3>Üretim tarafı göstergeleri</h3>
+    <div class="panel tbl"><table id="uTablo"></table></div>
+    <h3>Takım, tezgah ve otomasyon şirketleri (borsa)</h3>
+    <div class="panel tbl"><table id="uHisse"></table></div>
+    <h3>Dünya ticareti: tezgah, takım ve elmas</h3>
+    <div class="ticaret" id="uTicaret"></div>
+    <h3>Teknoloji gündemi</h3>
+    <div class="cipler" id="uHaberCip" role="group" aria-label="Teknoloji konusu"></div>
+    <div class="panel" style="padding:4px 12px"><div class="haberler" id="uHaberListe"></div></div>
+  </section>
+
+  <section id="sozluk">
+    <div class="bas"><h2>Rakamlar ne demek?</h2><p>Panodaki her sayı türünün nasıl okunacağı.</p></div>
+    <div class="sozluk" id="sozlukIcerik"></div>
+  </section>
+
+  <section id="yontem">
+    <div class="bas"><h2>Yöntem</h2></div>
+    <div class="panel yontem">
+      <ul>
+        <li><b>Sinyal:</b> Her gösterge için son 3 ayın ortalaması, geçen yılın aynı 3 ayıyla karşılaştırılır (yıllık değişim). OECD öncü göstergelerinde 100 trend çizgisidir; sinyal 100'den sapmadır.</li>
+        <li><b>Standartlaştırma (z):</b> Bu sinyal, göstergenin 2010'dan beri kendi geçmişine göre ölçülür. z = 0 olağan, +1 olağandan belirgin iyi, −1 belirgin kötü. Böylece farklı birimlerdeki göstergeler toplanabilir.</li>
+        <li><b>Nabız:</b> Bölgedeki talep göstergelerinin z ortalaması. Öncü göstergeler 1,5, üretim/satış göstergeleri 1, istihdam 0,5 ağırlıklı. Maliyet göstergeleri ve yapısal göstergeler (tarım istihdamı) nabza girmez. Dünya nabzı Amerika, Avrupa, Asya ve küresel göstergelerin ortalamasıdır.</li>
+        <li><b>Durum:</b> ≥ 0,75 güçlü büyüme · ≥ 0,25 büyüme · ±0,25 yatay · ≤ −0,25 daralma · ≤ −0,75 güçlü daralma. Yön, 3 ay önceki skorla karşılaştırmadır.</li>
+        <li><b>Kaynaklar:</b> FRED (ABD Merkez Bankası St. Louis), Eurostat, OECD, Yahoo Finance, SEC EDGAR, ITC Trade Map, Google Haberler. Hepsi açık ve ücretsiz.</li>
+      </ul>
+      <div class="uyari"><b>Dikkat:</b> Nabız, pazarın genel yönünü gösterir; tek bir şirketin cirosunu birebir tahmin etmez. Bir göstergeyi karar için kullanmadan önce kendi satış verinizle birkaç dönem karşılaştırmak gerekir.</div>
+      <p><b>Güncelleme:</b> Veri her sabah otomatik toplanır. Borsa, emtia ve haberler her gün değişir; üretim, sipariş ve istihdam verileri ise kurumlar tarafından ayda bir (çoğunlukla 4–8 hafta gecikmeyle) yayımlanır. Bu yüzden aylık bir gösterge, yeni ay verisi açıklanana kadar aynı kalır; bu bir hata değildir.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+const fmt=(v,d=1)=>v==null||!isFinite(v)?'–':v.toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtBuyuk=v=>{if(v==null)return'–';const a=Math.abs(v);return a>=1e4?v.toLocaleString('tr-TR',{maximumFractionDigits:0}):a>=100?fmt(v,1):fmt(v,2)};
+const isaret=v=>v==null?'':(v>0?'+':'');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a={},txt)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e};
+const h=(s)=>{const d=document.createElement('template');d.innerHTML=s.trim();return d.content.firstChild};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const AY=['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+const ayAdi=t=>{if(/Q\d/.test(t)){const [y,q]=t.split('-Q');return `${q}. çeyrek ${y}`}const [y,m]=t.split('-');return m?`${AY[+m-1]} ${y}`:y};
+const BOLGE={dunya:'Dünya',amerika:'Amerika',avrupa:'Avrupa',asya:'Asya',turkiye:'Türkiye',global:'Küresel'};
+const KATMAN={oncu:'Öncü',es:'Üretim/satış',istihdam:'İstihdam',maliyet:'Maliyet'};
+const DURUM_SINIF={'Güçlü büyüme':'d-gb','Büyüme':'d-b','Yatay':'d-y','Daralma':'d-d','Güçlü daralma':'d-gd'};
+const YON={iyilesiyor:['↗','İyileşiyor'],kotulesiyor:['↘','Kötüleşiyor'],yatay:['→','Yatay seyir']};
+const durumIkon=d=>{if(!d)return'';if(d.includes('büyüme')||d==='Büyüme')return'<svg viewBox="0 0 10 10"><path d="M5 1 9 8H1z" fill="currentColor"/></svg>';if(d==='Yatay')return'<svg viewBox="0 0 10 10"><rect x="1" y="4" width="8" height="2" fill="currentColor"/></svg>';return'<svg viewBox="0 0 10 10"><path d="M5 9 1 2h8z" fill="currentColor"/></svg>'};
+const ULKE={'United States of America':'ABD','Germany':'Almanya','China':'Çin','United Kingdom':'Birleşik Krallık','Mexico':'Meksika','Poland':'Polonya','France':'Fransa','Italy':'İtalya','Japan':'Japonya','Canada':'Kanada','Netherlands':'Hollanda','Korea, Republic of':'Güney Kore','India':'Hindistan','Belgium':'Belçika','Spain':'İspanya','Czech Republic':'Çekya','Czechia':'Çekya','Brazil':'Brezilya','Russian Federation':'Rusya','Sweden':'İsveç','Austria':'Avusturya','Thailand':'Tayland','Türkiye':'Türkiye','Turkey':'Türkiye','Australia':'Avustralya','Hungary':'Macaristan','Romania':'Romanya','Viet Nam':'Vietnam','Malaysia':'Malezya','Singapore':'Singapur','Denmark':'Danimarka','Switzerland':'İsviçre','Finland':'Finlandiya'};
+
+// ---------- Grafik yardımcıları ----------
+function sparkline(seri,{w=120,h=28,renk=css('--accent')}={}){
+  const v=seri.map(x=>x[1]).filter(x=>x!=null);if(v.length<2)return'';
+  const lo=Math.min(...v),hi=Math.max(...v),sx=i=>2+i/(v.length-1)*(w-6),sy=x=>h-3-(hi===lo?.5:(x-lo)/(hi-lo))*(h-6);
+  const d=v.map((x,i)=>(i?'L':'M')+sx(i).toFixed(1)+' '+sy(x).toFixed(1)).join('');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><path d="${d}" fill="none" stroke="${renk}" stroke-width="1.5" stroke-linejoin="round"/><circle cx="${sx(v.length-1)}" cy="${sy(v.at(-1))}" r="2.5" fill="${renk}"/></svg>`;
+}
+// Çizgi grafik: seriler [{ad, renk, veri:[[t,v]]}], hover ile çizgi + ipucu
+function cizgi(kap,seriler,{yukseklik=260,birim='',sifirCizgi=null,ondalik=1,etiketSag=true}={}){
+  kap.innerHTML='';const W=Math.max(320,kap.clientWidth||700),H=yukseklik,L=48,R=etiketSag?92:14,T=12,B=26;
+  const tum=[...new Set(seriler.flatMap(s=>s.veri.map(x=>x[0])))].sort();
+  const vals=seriler.flatMap(s=>s.veri.map(x=>x[1])).filter(x=>x!=null);
+  let lo=Math.min(...vals),hi=Math.max(...vals);if(sifirCizgi!=null){lo=Math.min(lo,sifirCizgi);hi=Math.max(hi,sifirCizgi)}
+  const pad=(hi-lo)*.08||1;lo-=pad;hi+=pad;
+  const adim=guzelAdim((hi-lo)/4),t0=Math.ceil(lo/adim)*adim;
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});const x=i=>L+i/(tum.length-1||1)*(W-L-R),y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  for(let v=t0;v<=hi;v+=adim){svg.append(el('line',{x1:L,x2:W-R,y1:y(v),y2:y(v),stroke:css('--grid')}));svg.append(el('text',{x:L-8,y:y(v)+4,'text-anchor':'end','font-size':11,'font-family':css('--mono'),fill:css('--muted')},fmt(v,adim<1?1:0)))}
+  if(sifirCizgi!=null)svg.append(el('line',{x1:L,x2:W-R,y1:y(sifirCizgi),y2:y(sifirCizgi),stroke:css('--muted'),'stroke-dasharray':'3 3'}));
+  // yıl etiketleri
+  let sonYil=null,sonX=-1e9;
+  tum.forEach((t,i)=>{const yy=t.slice(0,4);if(yy!==sonYil){sonYil=yy;if(x(i)-sonX>=42&&x(i)>L+14){sonX=x(i);svg.append(el('text',{x:x(i),y:H-6,'text-anchor':'middle','font-size':11,'font-family':css('--mono'),fill:css('--muted')},yy))}}});
+  const idx=new Map(tum.map((t,i)=>[t,i]));
+  seriler.forEach(s=>{const p=s.veri.filter(d=>d[1]!=null);if(!p.length)return;
+    svg.append(el('path',{d:p.map((d,i)=>(i?'L':'M')+x(idx.get(d[0])).toFixed(1)+' '+y(d[1]).toFixed(1)).join(''),fill:'none',stroke:s.renk,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'}));
+    const son=p.at(-1);svg.append(el('circle',{cx:x(idx.get(son[0])),cy:y(son[1]),r:4,fill:s.renk,stroke:css('--surface'),'stroke-width':2}));
+    if(etiketSag)svg.append(el('text',{x:x(idx.get(son[0]))+8,y:y(son[1])+4,'font-size':12,'font-family':css('--body'),fill:css('--fg-2')},(seriler.length>1?s.ad+' ':'')+fmt(son[1],ondalik)));
+  });
+  const cizgiV=el('line',{y1:T,y2:H-B,stroke:css('--muted'),'stroke-width':1,visibility:'hidden'});svg.append(cizgiV);
+  const nokta=seriler.map(s=>{const c=el('circle',{r:4,fill:s.renk,stroke:css('--surface'),'stroke-width':2,visibility:'hidden'});svg.append(c);return c});
+  const alan=el('rect',{x:L,y:T,width:W-L-R,height:H-T-B,fill:'transparent'});svg.append(alan);
+  kap.append(svg);const ip=document.createElement('div');ip.className='ipucu';ip.hidden=true;kap.append(ip);
+  const goster=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)/r.width*W;const i=Math.max(0,Math.min(tum.length-1,Math.round((px-L)/(W-L-R)*(tum.length-1))));const t=tum[i];
+    cizgiV.setAttribute('x1',x(i));cizgiV.setAttribute('x2',x(i));cizgiV.setAttribute('visibility','visible');
+    let satir=`<div style="color:${css('--muted')}">${esc(t.length>7?t:ayAdi(t))}</div>`;
+    seriler.forEach((s,k)=>{const d=s.veri.find(z=>z[0]===t);if(d&&d[1]!=null){nokta[k].setAttribute('cx',x(i));nokta[k].setAttribute('cy',y(d[1]));nokta[k].setAttribute('visibility','visible');satir+=`<div><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.renk};margin-right:6px"></span>${esc(s.ad)} ${fmt(d[1],ondalik)}${birim}</div>`}else nokta[k].setAttribute('visibility','hidden')});
+    ip.innerHTML=satir;ip.hidden=false;const kr=kap.getBoundingClientRect();let lx=e.clientX-kr.left+12;if(lx+ip.offsetWidth>kr.width)lx=e.clientX-kr.left-ip.offsetWidth-12;ip.style.left=lx+'px';ip.style.top=Math.max(0,e.clientY-kr.top-10)+'px'};
+  alan.addEventListener('pointermove',goster);alan.addEventListener('pointerleave',()=>{ip.hidden=true;cizgiV.setAttribute('visibility','hidden');nokta.forEach(n=>n.setAttribute('visibility','hidden'))});
+}
+function guzelAdim(x){const p=10**Math.floor(Math.log10(x));const f=x/p;return (f<1.5?1:f<3?2:f<7?5:10)*p}
+function zCubuk(z){if(z==null)return'';const c=Math.max(-3,Math.min(3,z)),w=Math.abs(c)/3*50;const renk=c>=0?'var(--div-pos)':'var(--div-neg)';return `<div class="zbar" title="z = ${fmt(z,2)}"><i style="left:${c>=0?50:50-w}%;width:${w}%;background:${renk}"></i></div>`}
+function degisim(v,ters=false){if(v==null)return'<span class="num">–</span>';const iyi=ters?v<0:v>0;return `<span class="num ${v===0?'':iyi?'pos':'neg'}">${isaret(v)}${fmt(v,1)}%</span>`}
+
+// ---------- Bölümler ----------
+let D,secBolge='hepsi',secKatman='hepsi',secHaber='Tümü';
+function nabizKartlari(){
+  const kap=document.getElementById('nabizKartlar');kap.innerHTML='';
+  const kart=(k,n,genis)=>{const pos=Math.max(-2,Math.min(2,n.skor??0));const [ok,yonAd]=YON[n.yon]||['',''];
+    const d=h(`<div class="panel nk ${genis?'dunya':''}"><div style="display:flex;flex-direction:column;gap:8px">
+      <div class="ust"><h3>${BOLGE[k]}</h3><span class="pill ${DURUM_SINIF[n.durum]||''}">${durumIkon(n.durum)}${esc(n.durum||'–')}</span></div>
+      <div class="ust"><span class="skor">${isaret(n.skor)}${fmt(n.skor,2)}</span><span class="num" style="color:var(--fg-2);font-size:13px">${ok} ${yonAd}</span></div>
+      <div class="olcek" aria-label="−2 ile +2 arası ölçek"><i style="left:${(pos+2)/4*100}%"></i></div>
+      <div class="alt"><span>3 ay önce ${isaret(n.skor3AyOnce)}${fmt(n.skor3AyOnce,2)}</span>${n.oncuSkor!=null?`<span>Öncüler ${isaret(n.oncuSkor)}${fmt(n.oncuSkor,2)}</span>`:''}<span>${ayAdi(n.ay||'')}</span></div></div>
+      <div class="grafik" data-g="${k}"></div></div>`);
+    kap.append(d);
+    const g=d.querySelector('.grafik');cizgi(g,[{ad:BOLGE[k]+' nabzı',renk:css('--accent'),veri:n.tarihce}],{yukseklik:genis?170:110,sifirCizgi:0,ondalik:2,etiketSag:false});
+  };
+  kart('dunya',D.nabiz.dunya,true);['amerika','avrupa','asya','turkiye'].forEach(k=>kart(k,D.nabiz[k]));
+}
+function beklenti(){
+  const sira=['turkiye','dunya','avrupa','amerika','asya'];
+  // evre haritası
+  const kap=document.getElementById('evreGrafik');kap.innerHTML='';
+  const W=400,H=300,L=14,R=14,T=14,B=14;
+  const nn=sira.map(k=>D.nabiz[k]).filter(n=>n?.skor!=null&&n.ivme!=null);
+  const xm=Math.max(0.6,...nn.map(n=>Math.abs(n.skor)*1.5),...nn.map(n=>Math.abs(n.skor3AyOnce)*1.2)),ym=Math.max(0.25,...nn.map(n=>Math.abs(n.ivme)*1.6));
+  const x=v=>L+(Math.max(-xm,Math.min(xm,v))+xm)/(2*xm)*(W-L-R),y=v=>T+(ym-Math.max(-ym,Math.min(ym,v)))/(2*ym)*(H-T-B);
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'Bölgelerin döngü evresi haritası'});
+  const ceyrek=[['Toparlanma',L,T,'start'],['Genişleme',W-R,T,'end'],['Daralma',L,H-B,'start'],['Yavaşlama',W-R,H-B,'end']];
+  const renk={Genişleme:'--good',Toparlanma:'--accent',Yavaşlama:'--warn',Daralma:'--crit'};
+  svg.append(el('rect',{x:L,y:T,width:W-L-R,height:H-T-B,fill:'none',stroke:css('--line')}));
+  svg.append(el('line',{x1:x(0),x2:x(0),y1:T,y2:H-B,stroke:css('--line')}));svg.append(el('line',{x1:L,x2:W-R,y1:y(0),y2:y(0),stroke:css('--line')}));
+  ceyrek.forEach(([ad,cx,cy,anc])=>svg.append(el('text',{x:cx+(anc==='start'?8:-8),y:cy+(cy===T?18:-8),'text-anchor':anc,'font-size':12,'font-weight':600,'font-family':css('--display'),fill:css(renk[ad]),'letter-spacing':'.06em'},ad.toUpperCase())));
+  // noktalar; etiketler çakışmasın diye sağ/sol sütunlarda dizilip ince çizgiyle bağlanır
+  const pts=sira.map(k=>({k,n:D.nabiz[k]})).filter(p=>p.n?.skor!=null&&p.n.ivme!=null).map(p=>({...p,cx:x(p.n.skor),cy:y(p.n.ivme)}));
+  pts.forEach(p=>svg.append(el('circle',{cx:p.cx,cy:p.cy,r:p.k==='turkiye'?7:5.5,fill:css(renk[p.n.evre]),stroke:css('--surface'),'stroke-width':2})));
+  for(const taraf of ['sag','sol']){
+    const grup=pts.filter(p=>(p.cx<W/2)===(taraf==='sol')).sort((a,b)=>a.cy-b.cy);let son=-1e9;
+    grup.forEach(p=>{let ly=Math.max(p.cy,son+15);ly=Math.min(ly,H-B-6);son=ly;
+      const lx=taraf==='sag'?p.cx+26:p.cx-26;
+      svg.append(el('line',{x1:p.cx+(taraf==='sag'?7:-7),y1:p.cy,x2:lx+(taraf==='sag'?-3:3),y2:ly-4,stroke:css('--muted'),'stroke-width':1}));
+      svg.append(el('text',{x:lx,y:ly,'text-anchor':taraf==='sag'?'start':'end','font-size':12,'font-weight':p.k==='turkiye'?600:400,'font-family':css('--body'),fill:css('--fg')},BOLGE[p.k]))});
+  }
+  kap.append(svg);
+  // kartlar
+  const kk=document.getElementById('evreKart');kk.innerHTML='';
+  sira.forEach(k=>{const n=D.nabiz[k];if(!n?.evre)return;
+    kk.append(h(`<div class="panel ek ${k==='turkiye'?'ana':''}"><div class="ust"><h3>${BOLGE[k]}</h3><span class="evre e-${n.evre}">${n.evre}</span><span class="guven">Güven: <b>${n.guven}</b></span></div>
+      <p>${esc(n.cumle)}</p>
+      <div class="yay"><span>${n.iyilesenSayi}/${n.toplamSayi} gösterge iyileşiyor</span><span class="cubuk"><i style="width:${n.yayilim??0}%"></i></span>${n.oncuYayilim!=null?`<span>öncülerin %${n.oncuYayilim}'i</span>`:''}</div>
+      ${n.iyilesenler?.length?`<div class="liste">İyileşen: ${n.iyilesenler.map(esc).join(' · ')}</div>`:''}
+      ${n.kotulesenler?.length?`<div class="liste">Kötüleşen: ${n.kotulesenler.map(esc).join(' · ')}</div>`:''}</div>`))});
+}
+// ---------- Birimli sayı yazımı ----------
+// Kaynaktaki birimi okur, sayıyı "45,5 milyar $" gibi okunur hale getirir
+function deger(v,birim=''){
+  if(v==null||!isFinite(v))return'–';
+  const b=birim.toLowerCase(),ek=birim.includes('(yıllık hız)')?' (yıllık hız)':'';
+  if(b.startsWith('milyon $'))return (Math.abs(v)>=1000?`${fmt(v/1000,1)} milyar $`:`${fmt(v,0)} milyon $`)+ek;
+  if(b.startsWith('bin adet'))return (Math.abs(v)>=1000?`${fmt(v/1000,2)} milyon adet`:`${fmt(v,0)} bin adet`)+ek;
+  if(b.startsWith('bin kişi'))return Math.abs(v)>=1000?`${fmt(v/1000,2)} milyon kişi`:`${fmt(v,0)} bin kişi`;
+  if(b.startsWith('$/ton'))return `${fmt(v,0)} $/ton`;
+  if(b.startsWith('$/varil'))return `${fmt(v,1)} $/varil`;
+  if(b.startsWith('$/galon'))return `${fmt(v,2)} $/galon`;
+  if(b.startsWith('abd senti'))return `${fmt(v,1)} sent/kg`;
+  if(b.includes('100 = uzun dönem trend'))return `${fmt(v,1)} puan`;
+  if(b.startsWith('endeks'))return `${fmt(v,v<10?2:1)} puan`;
+  return fmtBuyuk(v);
+}
+function para(v,cur){if(v==null||!isFinite(v))return'–';const a=Math.abs(v);return a>=1e9?`${fmt(v/1e9,a>=1e11?0:1)} milyar ${cur}`:a>=1e6?`${fmt(v/1e6,0)} milyon ${cur}`:`${fmt(v,0)} ${cur}`}
+// Sapma puanı (z) → düz Türkçe
+function sapmaAd(z){if(z==null)return'–';return z>=2?'İstisnai güçlü':z>=1?'Çok güçlü':z>=0.5?'Güçlü':z>-0.5?'Olağan':z>-1?'Zayıf':z>-2?'Çok zayıf':'İstisnai zayıf'}
+function sapma(z){if(z==null)return'–';const s=z>=0.5?'pos':z<=-0.5?'neg':'';return `<span class="sapma ${s}" title="Sapma puanı ${fmt(z,2)}: 0 olağan, +1 çok güçlü, −1 çok zayıf">${sapmaAd(z)} <span class="num">(${isaret(z)}${fmt(z,1)})</span></span>`}
+function yillikHucre(g){return g.kaynak==='oecd_cli'?`<span class="num" title="100 = trend">trendin ${g.son>=100?'üstünde':'altında'} ${fmt(Math.abs(g.son-100),1)} puan</span>`:degisim(g.yoy3)}
+function okunus(g){
+  if(g.kaynak==='oecd_cli')return 'Okunuşu: 100\'ün üstü = ekonomi uzun dönem trendinin üstünde. Asıl sinyal yöndür: 3–6 ay boyunca yükselen bir öncü gösterge, sanayi talebinin artacağını; düşen, yavaşlayacağını haber verir.';
+  if(g.birim.startsWith('endeks'))return 'Okunuşu: Endeks değerinin kendisi değil, değişimi önemlidir. "Yıllık değişim", son 3 ayın ortalamasının geçen yılın aynı 3 ayına göre yüzde kaç değiştiğini gösterir.';
+  return 'Okunuşu: "Yıllık değişim", son 3 ayın ortalamasının geçen yılın aynı 3 ayına göre yüzde kaç değiştiğini gösterir. Tek aylık sıçramalar yanıltıcı olabileceği için 3 aylık ortalama kullanılır.';
+}
+
+function yorum(){
+  const o=D.ozet;if(!o)return;document.getElementById('yorum').hidden=false;
+  document.getElementById('yorumTarih').textContent=`${new Date(o.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})} tarihli verilerden ${o.otomatik?'otomatik olarak üretildi':'yazıldı'}.`;
+  const liste=(b,a)=>a?.length?`<div><h3 style="margin-bottom:6px">${b}</h3><ul>${a.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+  document.getElementById('yorumIcerik').innerHTML=`${o.pazar?`<p>${esc(o.pazar)}</p>`:''}${liste('Dikkat edilecekler',o.dikkat)}${liste('Teknoloji gündemi',o.teknoloji)}`;
+}
+function ozet(){
+  const talep=D.gostergeler.filter(g=>g.yon!==0&&g.z!=null);
+  const iyi=[...talep].sort((a,b)=>b.z*b.yon-a.z*a.yon).slice(0,6), kotu=[...talep].sort((a,b)=>a.z*a.yon-b.z*b.yon).slice(0,6);
+  const mal=D.gostergeler.filter(g=>(g.katman==='maliyet'||g.katman==='lojistik')&&g.yoy3!=null).sort((a,b)=>b.yoy3-a.yoy3).slice(0,6);
+  const li=(g,sag)=>`<li><span>${esc(g.ad)} <span class="lbl" style="font-size:10px">${BOLGE[g.bolge]}</span><br><span style="font-size:12px;color:var(--muted)">son değer ${deger(g.son,g.birim)} · yıllık ${g.kaynak==='oecd_cli'?'–':`${isaret(g.yoy3)}${fmt(g.yoy3,1)}%`}</span></span>${sag}</li>`;
+  document.getElementById('ozet').innerHTML=`
+   <div class="panel"><span class="lbl" style="color:var(--good)">Normalden güçlü seyredenler</span><ul>${iyi.map(g=>li(g,sapma(g.z))).join('')}</ul></div>
+   <div class="panel"><span class="lbl" style="color:var(--crit)">Normalden zayıf seyredenler</span><ul>${kotu.map(g=>li(g,sapma(g.z))).join('')}</ul></div>
+   <div class="panel"><span class="lbl" style="color:var(--warn)">En hızlı artan maliyetler (yıllık)</span><ul>${mal.map(g=>li(g,degisim(g.yoy3,true))).join('')}</ul></div>`;
+}
+function cipler(id,secenekler,secili,cb){const k=document.getElementById(id);k.innerHTML='';secenekler.forEach(([v,ad])=>{const b=h(`<button class="cip" type="button" aria-pressed="${v===secili}">${esc(ad)}</button>`);b.onclick=()=>cb(v);k.append(b)})}
+function gostergeSatirlari(tabloId,liste){
+  const t=document.getElementById(tabloId);
+  t.innerHTML=`<thead><tr><th>Gösterge</th><th>Bölge</th><th>Katman</th><th class="r">Son değer</th><th>Dönem</th><th class="r">Yıllık değişim</th><th title="Bugünkü yıllık değişim, 2010'dan beri bu göstergenin olağan aralığına göre nerede?">Normale göre</th><th>Son 10 yıl</th></tr></thead>`;
+  const tb=document.createElement('tbody');
+  liste.forEach(g=>{const tr=h(`<table><tr class="satir" tabindex="0" aria-expanded="false"><td>${esc(g.ad)}</td><td>${BOLGE[g.bolge]}</td><td><span class="katman">${KATMAN[g.katman]}</span></td><td class="r num" style="white-space:nowrap">${deger(g.son,g.birim)}</td><td class="num" style="white-space:nowrap">${ayAdi(g.tarih)}</td><td class="r">${yillikHucre(g)}</td><td>${g.yon?sapma(g.z):'<span class="sapma">nabza girmez</span>'}</td><td>${sparkline(g.seri)}</td></tr></table>`).querySelector('tr');
+    const ac=()=>{const sonraki=tr.nextElementSibling;if(sonraki&&sonraki.classList.contains('detay')){sonraki.remove();tr.setAttribute('aria-expanded','false');return}
+      const d=h(`<table><tr class="detay"><td colspan="8"><div style="display:flex;flex-direction:column;gap:10px">
+        <dl class="kalem"><dt>Bu sayı nedir?</dt><dd>${esc(g.olcu||'')}</dd><dt>Neden önemli?</dt><dd>${esc(g.neden)}</dd><dt>Nasıl okunur?</dt><dd>${esc(okunus(g))}</dd>
+        <dt>Son değer</dt><dd>${deger(g.son,g.birim)} (${ayAdi(g.tarih)}) · birim: ${esc(g.birim)}</dd><dt>Sıklık</dt><dd>${esc(g.siklik||'Aylık')} · Kaynak: ${esc(g.kaynakAd||g.kaynak)} (${esc(g.kod||g.veri)})</dd></dl>
+        <div class="grafik"></div></div></td></tr></table>`).querySelector('tr');
+      tr.after(d);tr.setAttribute('aria-expanded','true');cizgi(d.querySelector('.grafik'),[{ad:g.ad,renk:css('--accent'),veri:g.seri}],{yukseklik:220,sifirCizgi:g.kaynak==='oecd_cli'?100:null,ondalik:g.son>1000?0:1,etiketSag:true})};
+    tr.onclick=ac;tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ac()}};tb.append(tr)});
+  t.append(tb);
+}
+function gostergeTablosu(){
+  cipler('bolgeCip',[['hepsi','Tüm bölgeler'],['amerika','Amerika'],['avrupa','Avrupa'],['asya','Asya'],['turkiye','Türkiye'],['global','Küresel']],secBolge,v=>{secBolge=v;gostergeTablosu()});
+  cipler('katmanCip',[['hepsi','Tüm katmanlar'],['oncu','Öncü'],['es','Üretim/satış'],['istihdam','İstihdam']],secKatman,v=>{secKatman=v;gostergeTablosu()});
+  gostergeSatirlari('gTablo',D.gostergeler.filter(g=>g.tema!=='uretim'&&g.katman!=='maliyet'&&g.katman!=='lojistik'&&(secBolge==='hepsi'||g.bolge===secBolge)&&(secKatman==='hepsi'||g.katman===secKatman)));
+}
+function kartlar(id,katman){
+  const k=document.getElementById(id);k.innerHTML='';
+  D.gostergeler.filter(g=>g.katman===katman).forEach(g=>{k.append(h(`<div class="panel mk"><span style="font-weight:500;font-size:14px">${esc(g.ad)}</span>
+    <div class="deger"><span class="num" style="font-size:17px">${deger(g.son,g.birim)}</span>${degisim(g.yoy3,true)}</div>
+    ${sparkline(g.seri.slice(-60),{w:200,h:34})}<span style="font-size:12px;color:var(--fg-2)">${esc(g.olcu||'')}</span><span class="lbl" style="font-size:10px">${ayAdi(g.tarih)} · grafik son 5 yıl · ${esc(g.kaynakAd||'')}</span></div>`))});
+}
+function maliyetler(){kartlar('maliyetKart','maliyet');kartlar('lojistikKart','lojistik')}
+const GRUP={bilesen:['Hidrolik bileşen üreticileri','--s1','Hidrolik bileşen'],oem:['Makine üreticileri (OEM)','--s2','Makine üreticisi'],uretim:['Tezgah, takım ve otomasyon','--s4','Tezgah/takım/otomasyon'],tr:['Türkiye (BIST)','--s3','Türkiye']};
+function hisseSatir(x){return `<tr><td>${esc(x.ad)} <span class="lbl" style="font-size:10px">${esc(x.kod)}</span></td><td>${GRUP[x.grup][2]}</td><td>${BOLGE[x.bolge]}</td><td class="r num">${fmtBuyuk(x.son)} ${esc(x.paraBirimi)}</td><td class="r">${degisim(x.d1a)}</td><td class="r">${degisim(x.d3a)}</td><td class="r">${degisim(x.d12a)}</td><td>${sparkline(x.seri.slice(-52))}</td></tr>`}
+const HISSE_BASLIK=`<thead><tr><th>Şirket</th><th>Grup</th><th>Bölge</th><th class="r">Hisse fiyatı</th><th class="r">1 ay</th><th class="r">3 ay</th><th class="r">12 ay</th><th>Son 1 yıl</th></tr></thead>`;
+function borsa(){
+  const ser=Object.entries(D.hisseler.gruplar).map(([k,v])=>({ad:GRUP[k][0],renk:css(GRUP[k][1]),veri:v}));
+  document.getElementById('borsaLejant').innerHTML=ser.map(s=>`<span><i style="background:${s.renk}"></i>${esc(s.ad)}</span>`).join('');
+  cizgi(document.getElementById('borsaGrafik'),ser,{yukseklik:300,sifirCizgi:100,ondalik:0,etiketSag:false});
+  const sirali=[...D.hisseler.liste].sort((a,b)=>(b.d12a??-999)-(a.d12a??-999));
+  document.getElementById('hTablo').innerHTML=HISSE_BASLIK+`<tbody>${sirali.filter(x=>x.grup!=='uretim').map(hisseSatir).join('')}</tbody>`;
+  document.getElementById('uHisse').innerHTML=HISSE_BASLIK+`<tbody>${sirali.filter(x=>x.grup==='uretim').map(hisseSatir).join('')}</tbody>`;
+}
+function ciro(){
+  const t=document.getElementById('sTablo');
+  t.innerHTML=`<thead><tr><th>Şirket</th><th>Son çeyrek</th><th class="r">Çeyreklik ciro</th><th class="r">Geçen yılın aynı çeyreğine göre</th><th>Son 8 çeyrekte yıllık değişim</th></tr></thead><tbody>${
+    D.sec.map(s=>{const yo=s.seri.slice(-8).map(x=>x.yoy).filter(x=>x!=null);const mx=Math.max(1,...yo.map(Math.abs));
+      const cub=s.seri.slice(-8).map(x=>{const v=x.yoy??0,hh=Math.abs(v)/mx*14;return `<span title="${esc(x.donem)}: ${isaret(x.yoy)}${fmt(x.yoy,1)}%" style="display:inline-block;width:9px;height:30px;position:relative;margin-right:2px"><i style="position:absolute;left:0;right:0;${v>=0?`bottom:15px;height:${hh}px;background:var(--div-pos)`:`top:15px;height:${hh}px;background:var(--div-neg)`};border-radius:2px"></i></span>`}).join('');
+      return `<tr><td>${esc(s.ad)}</td><td class="num">${esc(s.son.donem)}</td><td class="r num">${deger(s.son.ciroMilyonUSD,'milyon $')}</td><td class="r">${degisim(s.son.yoy)}</td><td>${cub}</td></tr>`}).join('')}</tbody>`;
+}
+// ---------- Bilanço ----------
+let secBilanco='bilesen';
+const oran=(a,b)=>a!=null&&b?a/b*100:null;
+function bilanco(){
+  cipler('bilancoCip',[['bilesen','Hidrolik bileşen'],['oem','Makine üreticileri'],['uretim','Tezgah, takım, otomasyon'],['tr','Türkiye']],secBilanco,v=>{secBilanco=v;bilanco()});
+  const t=document.getElementById('bTablo');
+  t.innerHTML=`<thead><tr><th>Şirket</th><th>Son yıl</th><th class="r" title="Yıllık satış geliri, yaklaşık dolar karşılığı">Ciro (≈ $)</th><th class="r" title="Bir önceki yıla göre ciro değişimi">Ciro büyümesi</th><th class="r" title="Brüt kâr / ciro">Brüt marj</th><th class="r" title="Faaliyet kârı / ciro">Faaliyet marjı</th><th class="r" title="Net kâr / ciro">Net marj</th><th class="r" title="Ar-Ge harcaması / ciro">Ar-Ge payı</th><th class="r" title="Stok / ciro × 365">Stok (gün)</th><th class="r" title="Toplam borç / özkaynak">Borç / özkaynak</th></tr></thead>`;
+  const tb=document.createElement('tbody');
+  D.bilanco.filter(b=>b.grup===secBilanco).forEach(b=>{
+    const y=b.yillik.at(-1)||{},o=b.yillik.at(-2)||{};const usd=v=>v!=null&&b.usdKur?v*b.usdKur:null;
+    const bu=y.TotalRevenue&&o.TotalRevenue?(y.TotalRevenue/o.TotalRevenue-1)*100:null;
+    const pc=v=>v==null?'–':`${fmt(v,1)}%`;
+    const tr=h(`<table><tr class="satir" tabindex="0"><td>${esc(b.ad)} <span class="lbl" style="font-size:10px">${esc(b.kod)}</span></td><td class="num">${y.donem?y.donem.slice(0,7):'–'}</td>
+      <td class="r num" style="white-space:nowrap">${para(usd(y.TotalRevenue),'$')}</td><td class="r">${degisim(bu)}</td><td class="r num">${pc(oran(y.GrossProfit,y.TotalRevenue))}</td>
+      <td class="r num">${pc(oran(y.OperatingIncome,y.TotalRevenue))}</td><td class="r num">${pc(oran(y.NetIncome,y.TotalRevenue))}</td><td class="r num">${pc(oran(y.ResearchAndDevelopment,y.TotalRevenue))}</td>
+      <td class="r num">${y.Inventory&&y.TotalRevenue?fmt(y.Inventory/y.TotalRevenue*365,0):'–'}</td><td class="r num">${y.TotalDebt!=null&&y.StockholdersEquity?fmt(y.TotalDebt/y.StockholdersEquity,2):'–'}</td></tr></table>`).querySelector('tr');
+    const ac=()=>{const s=tr.nextElementSibling;if(s&&s.classList.contains('detay')){s.remove();return}
+      const KAL=[['TotalRevenue','Ciro'],['GrossProfit','Brüt kâr'],['OperatingIncome','Faaliyet kârı'],['EBITDA','FAVÖK'],['NetIncome','Net kâr'],['ResearchAndDevelopment','Ar-Ge harcaması'],['Inventory','Stoklar'],['TotalAssets','Toplam varlıklar'],['CashAndCashEquivalents','Nakit'],['TotalDebt','Toplam borç'],['StockholdersEquity','Özkaynak'],['OperatingCashFlow','Faaliyet nakit akışı'],['CapitalExpenditure','Yatırım harcaması'],['FreeCashFlow','Serbest nakit akışı']];
+      const yl=b.yillik;
+      const q=b.ceyreklik.filter(x=>x.TotalRevenue);const qs=q.length?`<p style="font-size:13px"><b>Çeyreklik ciro:</b> ${q.slice(-6).map(x=>`${x.donem.slice(0,7)}: ${para(x.TotalRevenue,b.para)}`).join(' · ')}</p>`:'<p style="font-size:13px;color:var(--muted)">Bu şirketin çeyreklik gelir tablosu veri kaynağında yok (Japon şirketleri çoğunlukla altı aylık raporlar).</p>';
+      const d=h(`<table><tr class="detay"><td colspan="10"><div style="display:flex;flex-direction:column;gap:10px">
+        <p style="font-size:13px">Tutarlar <b>${esc(b.para)}</b> cinsinden${b.para!=='USD'&&b.usdKur?` (bugünkü kurla 1 ${esc(b.para)} ≈ ${fmt(b.usdKur,b.usdKur<0.01?5:3)} $)`:''}. Dönem sonu tarihleri şirketin mali yılına göredir.</p>
+        <div class="tbl"><table><thead><tr><th>Kalem</th>${yl.map(x=>`<th class="r">${x.donem.slice(0,7)}</th>`).join('')}</tr></thead><tbody>
+        ${KAL.map(([k,ad])=>`<tr><td>${ad}</td>${yl.map(x=>`<td class="r num" style="white-space:nowrap">${para(x[k],b.para)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>${qs}</div></td></tr></table>`).querySelector('tr');
+      tr.after(d)};
+    tr.onclick=ac;tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();ac()}};tb.append(tr)});
+  t.append(tb);
+}
+function ticaretKart(t){const d=t.ithalat.dunya,son=d.at(-1),onc=d.at(-2);const deg=son&&onc?(son[1]/onc[1]-1)*100:null;
+    const trI=t.ithalat.turkiye.at(-1)?.[1],trE=t.ihracat.turkiye.at(-1)?.[1];const mx=Math.max(...d.map(x=>x[1]));
+    const bar=d.map(([y,v])=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px"><span class="num" style="width:34px;color:var(--muted)">${y}</span><span style="flex:1;height:10px;background:var(--surface-2);border-radius:2px;position:relative"><i style="position:absolute;inset:0 auto 0 0;width:${v/mx*100}%;background:var(--accent);border-radius:0 4px 4px 0"></i></span><span class="num" style="width:104px;text-align:right">${deger(v/1000,'milyon $')}</span></div>`).join('');
+    return h(`<div class="panel"><div class="bas"><h3>${esc(t.ad)}</h3><span class="lbl">GTİP ${t.hs}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><span>Dünya toplam ithalatı ${son?son[0]:''}</span><span><span class="num" style="font-size:17px">${son?deger(son[1]/1000,'milyon $'):'–'}</span> ${degisim(deg)}</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px">${bar}</div>
+      <div style="font-size:13px;color:var(--fg-2)">Türkiye ${son?son[0]:''}: ithalat <b class="num">${trI!=null?deger(trI/1000,'milyon $'):'–'}</b> · ihracat <b class="num">${trE!=null?deger(trE/1000,'milyon $'):'–'}</b></div>
+      <div style="font-size:13px;color:var(--fg-2)">En büyük alıcılar: ${t.ithalat.ilk.slice(0,5).map(x=>esc(ULKE[x.ulke]||x.ulke)).join(', ')}</div></div>`)}
+function ticaret(){
+  const k=document.getElementById('ticaretKart');k.innerHTML='';D.ticaret.filter(t=>t.grup!=='uretim').forEach(t=>k.append(ticaretKart(t)));
+  const u=document.getElementById('uTicaret');u.innerHTML='';D.ticaret.filter(t=>t.grup==='uretim').forEach(t=>u.append(ticaretKart(t)));
+}
+function haberHTML(liste){return liste.map(x=>{const t=new Date(x.tarih);return `<div class="haber"><div class="meta num">${t.toLocaleDateString('tr-TR',{day:'2-digit',month:'short'})}<br>${x.dil==='tr'?'TR':'EN'}</div><div><a href="${esc(x.link)}" target="_blank" rel="noopener">${esc(x.baslik)}</a>${x.ozet?`<div style="font-size:13px;color:var(--fg-2);margin-top:2px">${esc(x.ozet)}</div>`:''}<div class="meta">${esc(x.kaynak)} · ${esc(x.konu)}</div></div></div>`}).join('')||'<p style="padding:12px;color:var(--muted)">Bu konuda haber yok.</p>'}
+let secUHaber='Tümü';
+function haberler(){
+  const p=D.haberler.filter(x=>x.bolum!=='uretim'),u=D.haberler.filter(x=>x.bolum==='uretim');
+  cipler('haberCip',['Tümü',...new Set(p.map(x=>x.konu))].map(k=>[k,k]),secHaber,v=>{secHaber=v;haberler()});
+  document.getElementById('haberListe').innerHTML=haberHTML(p.filter(x=>secHaber==='Tümü'||x.konu===secHaber).slice(0,80));
+  cipler('uHaberCip',['Tümü',...new Set(u.map(x=>x.konu))].map(k=>[k,k]),secUHaber,v=>{secUHaber=v;haberler()});
+  document.getElementById('uHaberListe').innerHTML=haberHTML(u.filter(x=>secUHaber==='Tümü'||x.konu===secUHaber).slice(0,80));
+}
+function uretimGostergeleri(){gostergeSatirlari('uTablo',D.gostergeler.filter(g=>g.tema==='uretim'))}
+function sozluk(){
+  const ornek=D.gostergeler.find(g=>g.kod==='A33SNO');
+  document.getElementById('sozlukIcerik').innerHTML=`
+  <div class="panel"><h3>Normale göre (sapma puanı)</h3><p>Bir göstergenin bugünkü yıllık değişiminin, 2010'dan beri o göstergenin <b>kendi olağan dalgalanmasına</b> göre ne kadar sıra dışı olduğunu söyler. Farklı birimlerdeki (dolar, adet, endeks) göstergeleri aynı ölçüye getirmek için kullanılır. Parantez içindeki sayı, olağan dalgalanmanın kaç katı saptığıdır.</p>
+   <table><tbody><tr><td class="num">+2 ve üstü</td><td>İstisnai güçlü: yaklaşık her 40 dönemde 1 görülür</td></tr><tr><td class="num">+1 … +2</td><td>Çok güçlü: her 6 dönemden yalnızca 1'inde bu kadar iyi</td></tr><tr><td class="num">+0,5 … +1</td><td>Güçlü</td></tr><tr><td class="num">−0,5 … +0,5</td><td>Olağan</td></tr><tr><td class="num">−1 … −0,5</td><td>Zayıf</td></tr><tr><td class="num">−2 … −1</td><td>Çok zayıf</td></tr><tr><td class="num">−2 ve altı</td><td>İstisnai zayıf</td></tr></tbody></table>
+   ${ornek?`<p>Örnek: ${esc(ornek.ad)} şu an ${deger(ornek.son,ornek.birim)}; son 3 ayda geçen yıla göre ${isaret(ornek.yoy3)}${fmt(ornek.yoy3,1)}% değişmiş. Bu, göstergenin 2010'dan beri alışılmış değişim aralığına göre "${sapmaAd(ornek.z)}" bir değer (sapma puanı ${isaret(ornek.z)}${fmt(ornek.z,1)}).</p>`:''}</div>
+  <div class="panel"><h3>Yıllık değişim</h3><p>Son 3 ayın ortalamasının, geçen yılın aynı 3 ayının ortalamasına göre yüzde değişimi. Tek ayın sıçramasını yumuşatır ve mevsim etkisini ortadan kaldırır. Maliyet ve lojistik kartlarında artış kırmızı (maliyet yükseliyor), düşüş yeşildir.</p>
+   <h3>Talep nabzı</h3><p>Bir bölgedeki talep göstergelerinin sapma puanlarının ağırlıklı ortalaması. 0 = talep tarihsel olarak olağan seviyede; +0,25 üstü büyüme, −0,25 altı daralma. Öncü göstergeler 1,5 kat ağırlıklı.</p>
+   <h3>Evre ve güven</h3><p>Evre, nabzın seviyesine (olağanın üstü/altı) ve son 3 aydaki yönüne (yukarı/aşağı) bakar. Güven, göstergelerin ne kadarının aynı yönü gösterdiğine göre Düşük, Orta veya Yüksek'tir.</p></div>
+  <div class="panel"><h3>Birimler</h3><table><tbody>
+   <tr><td>milyon $ / milyar $</td><td>1 milyar = 1.000 milyon dolar. Panoda 1.000 milyonun üstündeki tutarlar milyar olarak yazılır.</td></tr>
+   <tr><td>puan (endeks)</td><td>Bir baz döneme göre göreli seviye. 2021 = 100 ise 110, 2021'den %10 fazla demektir. Endeksin kendisinden çok değişimi önemlidir.</td></tr>
+   <tr><td>yıllık hız</td><td>O ayın değeri 12 ay boyunca sürseydi yıl toplamı ne olurdu (ABD inşaat ve konut verileri).</td></tr>
+   <tr><td>$/ton, $/varil, $/galon</td><td>Emtia birim fiyatı; varil = 159 litre, galon = 3,785 litre.</td></tr>
+   <tr><td>bin kişi</td><td>Çalışan sayısı; 8.300 bin kişi = 8,3 milyon kişi.</td></tr>
+   <tr><td>Hisse fiyatı</td><td>Şirketin kendi borsasındaki para biriminde (USD, JPY, EUR, TRY…). 1/3/12 ay sütunları fiyatın o süredeki yüzde değişimidir.</td></tr></tbody></table></div>
+  <div class="panel"><h3>Bilanço kalemleri</h3><dl class="kalem">
+   <dt>Ciro</dt><dd>Yıl içindeki toplam satış geliri.</dd><dt>Brüt marj</dt><dd>Ciro eksi üretim maliyeti, cironun yüzdesi olarak. Fiyatlama gücünü gösterir.</dd>
+   <dt>Faaliyet marjı</dt><dd>Satış, yönetim ve Ar-Ge giderleri de düşüldükten sonra kalan esas faaliyet kârı oranı.</dd><dt>Net marj</dt><dd>Vergi ve finansman giderleri sonrası her 100 birim satıştan kalan kâr.</dd>
+   <dt>FAVÖK</dt><dd>Faiz, amortisman ve vergi öncesi kâr (EBITDA).</dd><dt>Ar-Ge payı</dt><dd>Araştırma-geliştirme harcamasının ciroya oranı; yeni ürün yatırımının ölçüsü.</dd>
+   <dt>Stok (gün)</dt><dd>Eldeki stokun, bugünkü satış hızıyla kaç günde eriyeceği. Hızla artıyorsa talep yavaşlıyor olabilir.</dd>
+   <dt>Borç / özkaynak</dt><dd>Her 1 birim özkaynağa karşı kaç birim borç olduğu. 1'in üstü yüksek borçluluktur.</dd>
+   <dt>Serbest nakit akışı</dt><dd>Faaliyetlerden gelen nakitten yatırım harcaması düşüldükten sonra kalan nakit.</dd></dl></div>`;
+}
+function ciz(){if(!D)return;beklenti();nabizKartlari();borsa();document.querySelectorAll('tr.detay').forEach(d=>d.remove());gostergeTablosu();uretimGostergeleri()}
+fetch('veri.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(j=>{D=j;
+  document.getElementById('guncelleme').textContent=new Date(D.guncelleme).toLocaleString('tr-TR',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  fetch('ozet.json').then(r=>r.ok?r.json():null).then(o=>{if(o){D.ozet=o;yorum()}}).catch(()=>{});
+  beklenti();nabizKartlari();ozet();gostergeTablosu();maliyetler();borsa();ciro();bilanco();ticaret();haberler();uretimGostergeleri();sozluk();
+}).catch(e=>{document.getElementById('guncelleme').textContent='Veri yüklenemedi';document.getElementById('nabizKartlar').innerHTML=`<div class="uyari">veri.json okunamadı (${esc(e.message)}). Veri toplayıcıyı çalıştırıp sayfayı yeniden yayınlayın.</div>`});
+let zm;addEventListener('resize',()=>{clearTimeout(zm);zm=setTimeout(ciz,200)});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',ciz);
+new MutationObserver(ciz).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>

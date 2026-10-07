@@ -1,0 +1,45 @@
+name: Günlük güncelleme
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # her gün 14:00 UTC = 17:00 Türkiye saati
+  workflow_dispatch:        # GitHub sayfasından elle de çalıştırılabilir
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  guncelle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.yayin.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pages adresini öğren
+        id: sayfa
+        uses: actions/configure-pages@v5
+      - name: Verileri topla
+        env:
+          ONCEKI_URL: ${{ steps.sayfa.outputs.base_url }}/veri.json
+        run: node topla.js
+      - name: Günün yorumunu yaz
+        run: node yorum.js
+      - name: Yayın klasörünü hazırla
+        run: node site-olustur.js
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Yayınla
+        id: yayin
+        uses: actions/deploy-pages@v4
