@@ -98,7 +98,10 @@ async function oecdCli(ulkeler) {
 async function gostergeleriTopla() {
   const cliUlkeler = GOSTERGELER.filter(g => g.kaynak === 'oecd_cli').map(g => g.kod);
   let cli = {};
-  try { cli = await oecdCli(cliUlkeler); } catch (e) { hatalar.push(`OECD öncü göstergeler: ${e.message}`); }
+  try { cli = await oecdCli(cliUlkeler); } catch (e) {
+    // toplu istek başarısızsa ülke ülke dene
+    for (const u of cliUlkeler) { try { Object.assign(cli, await oecdCli([u])); await bekle(3000); } catch (e2) { hatalar.push(`OECD öncü gösterge ${u}: ${e2.message}`); } }
+  }
   const sonuc = [];
   for (const g of GOSTERGELER) {
     try {
@@ -393,7 +396,10 @@ async function bilancoTopla() {
   // Bir kaynak o gün cevap vermezse, bir önceki yayındaki değeri koru (ONCEKI_URL: yayındaki veri.json adresi)
   let onceki = null;
   if (process.env.ONCEKI_URL) { try { onceki = await getir(process.env.ONCEKI_URL, { tip: 'json', deneme: 2 }); } catch (e) { hatalar.push(`Önceki veri okunamadı: ${e.message}`); } }
-  if (onceki) {
+  // Yayındaki veri yoksa depodaki son kayıtlı veri.json yedek olarak kullanılır
+  let yerel = null; try { yerel = JSON.parse(fs.readFileSync(path.join(__dirname, 'veri.json'), 'utf8')); } catch {}
+  for (const kaynak of [onceki, yerel]) if (kaynak) eksikleriTamamla(kaynak);
+  function eksikleriTamamla(onceki) {
     const tamamla = (yeni, eski, anahtar) => { const var_ = new Set(yeni.map(anahtar)); for (const x of eski || []) if (!var_.has(anahtar(x))) yeni.push({ ...x, eski: true }); };
     tamamla(gostergeler, onceki.gostergeler, g => g.id);
     tamamla(hisseler.liste, onceki.hisseler?.liste, h => h.kod);
