@@ -2,7 +2,9 @@ name: Günlük güncelleme
 
 on:
   schedule:
-    - cron: '0 14 * * *'   # her gün 14:00 UTC = 17:00 Türkiye saati
+    # GitHub zamanlanmış işleri saat başlarında geciktirebiliyor; iki deneme yapılır
+    - cron: '11 13 * * *'  # 16:11 Türkiye saati
+    - cron: '11 14 * * *'  # 17:11 Türkiye saati
   workflow_dispatch:        # GitHub sayfasından elle de çalıştırılabilir
 
 permissions:

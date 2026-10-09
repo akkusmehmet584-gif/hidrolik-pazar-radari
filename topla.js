@@ -86,7 +86,7 @@ async function eurostatSeri(veri, filtre, ceyreklik) {
 
 async function oecdCli(ulkeler) {
   const url = `https://sdmx.oecd.org/public/rest/data/OECD.SDD.STES,DSD_STES@DF_CLI,4.1/${ulkeler.join('+')}.M.LI...AA...H?startPeriod=${BASLANGIC_YIL}-01&format=csvfilewithlabels`;
-  const csv = await getir(url, { tip: 'csv', deneme: 5, gecikme: 8000 });
+  const csv = await getir(url, { tip: 'csv', deneme: 3, gecikme: 8000 });
   const sat = csv.trim().split(/\r?\n/).map(l => l.match(/("([^"]|"")*"|[^,]*)(,|$)/g).map(x => x.replace(/,$/, '').replace(/^"|"$/g, '')));
   const h = sat[0], iU = h.indexOf('REF_AREA'), iT = h.indexOf('TIME_PERIOD'), iV = h.indexOf('OBS_VALUE');
   const sonuc = {};
@@ -98,9 +98,11 @@ async function oecdCli(ulkeler) {
 async function gostergeleriTopla() {
   const cliUlkeler = GOSTERGELER.filter(g => g.kaynak === 'oecd_cli').map(g => g.kod);
   let cli = {};
-  try { cli = await oecdCli(cliUlkeler); } catch (e) {
-    // toplu istek başarısızsa ülke ülke dene
-    for (const u of cliUlkeler) { try { Object.assign(cli, await oecdCli([u])); await bekle(3000); } catch (e2) { hatalar.push(`OECD öncü gösterge ${u}: ${e2.message}`); } }
+  try { cli = await oecdCli(cliUlkeler); } catch (e) { hatalar.push(`OECD sunucusu cevap vermedi, FRED kopyası kullanılıyor (${e.message.slice(0, 40)})`); }
+  // OECD cevap vermezse aynı öncü göstergenin FRED'deki kopyası (bir ay gecikmeli) kullanılır
+  for (const u of cliUlkeler) {
+    if (cli[u]?.length || ['A5M', 'G20'].includes(u)) continue;
+    try { cli[u] = await fredSeri(`${u}LOLITOAASTSAM`); await bekle(1500); } catch (e) { hatalar.push(`Öncü gösterge ${u} (FRED): ${e.message}`); }
   }
   const sonuc = [];
   for (const g of GOSTERGELER) {
