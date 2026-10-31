@@ -166,7 +166,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
 <script>
 (() => {
 const TYPES = {
-  dolap: { label: "Kitaplık / dolap", w: 160, d: 40, h: 210, solid: true },
+  dolap: { label: "Kitaplık / dolap", w: 190, d: 45, h: 250, solid: true },
   koli:  { label: "Koli yığını", w: 50, d: 40, h: 30, solid: true },
   kova:  { label: "Kova (yerde)", w: 45, d: 45, h: 100, solid: true },
   bant:  { label: "Bant alanı (zemin)", w: 200, d: 120, h: 0, solid: false },
@@ -243,7 +243,12 @@ function afterEdit(full) { if (sel && !cur.items.find((i) => i.id === sel)) sel 
 
 function openScenario(id) {
   curId = id; cur = clone(scenarios[id]); sel = null; selCell = null; undoStack = []; redoStack = []; updUndo();
+  // eski sürümün eklediği küçük dolapları (160×40×210) depodaki dolap ölçüsüne getir
+  const ref = cur.items.find((i) => i.type === "dolap" && !(i.w === 160 && i.d === 40 && i.h === 210));
+  let fixed = false;
+  if (ref) cur.items.forEach((i) => { if (i.type === "dolap" && i.w === 160 && i.d === 40 && i.h === 210) { const f = fp(i), cx = i.x + f.w / 2, cy = i.y + f.d / 2; Object.assign(i, { w: ref.w, d: ref.d, h: ref.h }); const n = fp(i); i.x = snap(cx - n.w / 2, 5); i.y = snap(cy - n.d / 2, 5); fixed = true; } });
   lsSetCur(id); renderAll(true);
+  if (fixed) scheduleSave();
 }
 
 async function createScenario(body) {
@@ -341,7 +346,7 @@ function freeSpot(w, d) {
   const R = cur.room;
   for (let y = 0; y + d <= R.h; y += 10) for (let x = 0; x + w <= R.w; x += 10) {
     const r = { x1: x, y1: y, x2: x + w, y2: y + d };
-    if (!cur.items.some((o) => isSolid(o) && hit(r, rect(o)))) return { x, y };
+    if (!cur.items.some((o) => isSolid(o) && !(o.z > 0) && hit(r, rect(o)))) return { x, y };
   }
   return { x: snap((R.w - w) / 2), y: snap((R.h - d) / 2) };
 }
@@ -349,24 +354,49 @@ function addItem(type) {
   pushUndo();
   const t = TYPES[type];
   const it = { id: "i" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type, name: nextName(type), w: t.w, d: t.d, h: t.h, rot: 0, x: 0, y: 0 };
-  if (type === "dolap") Object.assign(it, { cols: 4, rows: 6, kova: 0, cells: {} });
+  if (type === "dolap") {
+    // yeni dolap, depodaki mevcut dolaplarla aynı ölçüde gelsin
+    const ref = cur.items.find((i) => i.type === "dolap");
+    Object.assign(it, { cols: 4, rows: 6, kova: 0, cells: {} });
+    if (ref) Object.assign(it, { w: ref.w, d: ref.d, h: ref.h, cols: ref.cols, rows: ref.rows });
+  }
   if (type === "koli") it.stack = 3;
   const p = TYPES[type].solid ? freeSpot(it.w, it.d) : { x: snap((cur.room.w - it.w) / 2), y: snap((cur.room.h - it.d) / 2) };
-  it.x = p.x; it.y = p.y;
+  it.x = p.x; it.y = p.y; it.z = 0;
   cur.items.push(it); sel = it.id; selCell = null;
   afterEdit(true);
 }
 
 /* ---------- geometri ---------- */
 function hit(a, b) { return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1; }
+
+/* üst üste koyma: z = zeminden taban yüksekliği (cm) */
+const tall = (it) => (it.type === "koli" ? (it.h || 0) * (it.stack || 1) : TYPES[it.type]?.solid ? it.h || 0 : 0);
+const topOf = (it) => (it.z || 0) + tall(it);
+const zHit = (a, b) => (a.z || 0) < topOf(b) - 0.5 && (b.z || 0) < topOf(a) - 0.5;
+const centerIn = (it, o) => { const r = rect(it), q = rect(o), cx = (r.x1 + r.x2) / 2, cy = (r.y1 + r.y2) / 2; return cx > q.x1 && cx < q.x2 && cy > q.y1 && cy < q.y2; };
+// bir nesnenin üstünde duranlar (onlar da onunla birlikte taşınır)
+function ridersOf(it, acc = []) {
+  cur.items.forEach((o) => { if (o !== it && isSolid(o) && !acc.includes(o) && (o.z || 0) > 0 && Math.abs((o.z || 0) - topOf(it)) < 1 && centerIn(o, it)) { acc.push(o); ridersOf(o, acc); } });
+  return acc;
+}
+// bırakılan nesneyi, ortası üstüne gelen en yüksek nesnenin üstüne oturt; yoksa zemine indir
+function settle(it, riders = []) {
+  if (!isSolid(it)) { it.z = 0; return; }
+  const old = it.z || 0;
+  const below = cur.items.filter((o) => o !== it && isSolid(o) && !riders.includes(o) && centerIn(it, o));
+  const z = below.length ? Math.max(...below.map(topOf)) : 0;
+  it.z = z; riders.forEach((r) => (r.z = (r.z || 0) + (z - old)));
+}
+function moveBy(it, dx, dy, riders) { it.x += dx; it.y += dy; riders.forEach((r) => { r.x += dx; r.y += dy; }); }
 function problems() {
   const bad = new Set(), solids = cur.items.filter(isSolid);
-  for (let i = 0; i < solids.length; i++) for (let j = i + 1; j < solids.length; j++) if (hit(rect(solids[i]), rect(solids[j]))) { bad.add(solids[i].id); bad.add(solids[j].id); }
+  for (let i = 0; i < solids.length; i++) for (let j = i + 1; j < solids.length; j++) if (hit(rect(solids[i]), rect(solids[j])) && zHit(solids[i], solids[j])) { bad.add(solids[i].id); bad.add(solids[j].id); }
   cur.items.forEach((it) => { const r = rect(it); if (r.x1 < 0 || r.y1 < 0 || r.x2 > cur.room.w || r.y2 > cur.room.h) bad.add(it.id); });
   return bad;
 }
 function gapsOf(it) {
-  const r = rect(it), R = cur.room, others = cur.items.filter((o) => o.id !== it.id && isSolid(o)).map(rect);
+  const r = rect(it), R = cur.room, others = cur.items.filter((o) => o.id !== it.id && isSolid(o) && zHit(o, it)).map(rect);
   const g = { sol: r.x1, sag: R.w - r.x2, ust: r.y1, alt: R.h - r.y2 };
   others.forEach((o) => {
     if (o.y1 < r.y2 && o.y2 > r.y1) { if (o.x2 <= r.x1) g.sol = Math.min(g.sol, r.x1 - o.x2); if (o.x1 >= r.x2) g.sag = Math.min(g.sag, o.x1 - r.x2); }
@@ -399,12 +429,14 @@ function renderPlan() {
   for (let y = 100; y <= R.h; y += 100) s += `<text x="${-22}" y="${y + 4}" font-size="13" text-anchor="middle" fill="var(--muted)" font-family="var(--font-code)">${y / 100}m</text>`;
 
   const order = { bant: 0, kapi: 1, tezgah: 2, masa: 3, engel: 3, dolap: 4, kova: 5, koli: 6 };
-  const items = [...cur.items].sort((a, b) => order[a.type] - order[b.type]);
+  // alttakiler önce, üstüne konanlar sonra çizilir (üstteki tıklanabilir kalsın)
+  const items = [...cur.items].sort((a, b) => (a.z || 0) - (b.z || 0) || order[a.type] - order[b.type]);
   for (const it of items) {
     const r = rect(it), w = r.x2 - r.x1, d = r.y2 - r.y1, cx = r.x1 + w / 2, cy = r.y1 + d / 2;
     const isSel = it.id === sel, isBad = bad.has(it.id);
     const stroke = isBad ? "var(--bad)" : isSel ? "var(--fg)" : null;
     let g = `<g data-id="${esc(it.id)}" style="cursor:move">`;
+    if (it.z > 0) g += `<rect x="${r.x1 + 4}" y="${r.y1 + 4}" width="${w}" height="${d}" fill="#000" opacity=".28"/>`;
     const fs = Math.max(10, Math.min(18, Math.min(w, d) * 0.45));
     if (it.type === "dolap") {
       g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="var(--accent)" stroke="${stroke || "var(--accent)"}" stroke-width="${stroke ? 3 : 1}"/>`;
@@ -433,6 +465,7 @@ function renderPlan() {
       g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="${fill}" stroke="${stroke || "var(--wall)"}" stroke-width="${stroke ? 3 : 1}"/>`;
       g += `<text x="${cx}" y="${cy}" font-size="${Math.max(10, Math.min(14, Math.min(w, d) * 0.4))}" fill="${it.type === "engel" ? "var(--fg)" : "#26303b"}" text-anchor="middle" dominant-baseline="central" font-family="var(--font-body)" font-weight="600" ${d > w * 1.5 ? `transform="rotate(-90 ${cx} ${cy})"` : ""}>${esc(it.name)}</text>`;
     }
+    if (it.z > 0) g += `<g pointer-events="none"><rect x="${r.x2 - 34}" y="${r.y1 - 9}" width="38" height="16" rx="3" fill="var(--tape)"/><text x="${r.x2 - 15}" y="${r.y1}" font-size="11" text-anchor="middle" dominant-baseline="central" fill="#1b1b1b" font-family="var(--font-code)">↑${Math.round(it.z)}</text></g>`;
     g += `</g>`;
     s += g;
   }
@@ -461,7 +494,7 @@ svg.addEventListener("pointerdown", (e) => {
   const it = cur.items.find((i) => i.id === g.dataset.id); if (!it) return;
   if (sel !== it.id) { sel = it.id; selCell = null; }
   const p = svgPt(e);
-  dragging = { id: it.id, dx: p.x - it.x, dy: p.y - it.y, before: JSON.stringify(cur), moved: false };
+  dragging = { id: it.id, dx: p.x - it.x, dy: p.y - it.y, before: JSON.stringify(cur), moved: false, riders: ridersOf(it) };
   try { svg.setPointerCapture(e.pointerId); } catch {}
   e.preventDefault();
   renderPlan(); renderProps();
@@ -473,12 +506,15 @@ window.addEventListener("pointermove", (e) => {
   const p = svgPt(e), f = fp(it);
   let nx = snap(p.x - dragging.dx), ny = snap(p.y - dragging.dy);
   nx = Math.max(-f.w / 2, Math.min(cur.room.w - f.w / 2, nx)); ny = Math.max(-f.d / 2, Math.min(cur.room.h - f.d / 2, ny));
-  if (nx !== it.x || ny !== it.y) { it.x = nx; it.y = ny; dragging.moved = true; renderPlan(); renderStats(); }
+  if (nx !== it.x || ny !== it.y) { moveBy(it, nx - it.x, ny - it.y, dragging.riders); dragging.moved = true; renderPlan(); renderStats(); }
 });
 const endDrag = () => {
   if (three) three.controls.enabled = true;
   if (!dragging) return;
-  if (dragging.moved) { undoStack.push(dragging.before); redoStack = []; dragging = null; afterEdit(false); }
+  if (dragging.moved) {
+    const it = cur.items.find((i) => i.id === dragging.id); if (it) settle(it, dragging.riders);
+    undoStack.push(dragging.before); redoStack = []; dragging = null; afterEdit(true);
+  }
   else dragging = null;
 };
 window.addEventListener("pointerup", endDrag);
@@ -494,7 +530,13 @@ function rotateSel() {
   it.x = snap(cx - n.w / 2, 5); it.y = snap(cy - n.d / 2, 5);
   afterEdit(true);
 }
-function delSel() { const it = getSel(); if (!it) return; pushUndo(); cur.items = cur.items.filter((i) => i !== it); sel = null; afterEdit(true); }
+function delSel() {
+  const it = getSel(); if (!it) return; pushUndo();
+  const top = ridersOf(it);
+  cur.items = cur.items.filter((i) => i !== it);
+  top.sort((a, b) => (a.z || 0) - (b.z || 0)).forEach((r) => settle(r, ridersOf(r)));  // üstündekiler aşağı iner
+  sel = null; afterEdit(true);
+}
 function dupSel() {
   const it = getSel(); if (!it) return; pushUndo();
   const c = clone(it); c.id = "i" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -502,10 +544,10 @@ function dupSel() {
   if (c.type === "dolap") c.cells = {};
   const f = fp(it); const right = it.x + f.w * 2 <= cur.room.w;
   c.x = right ? it.x + f.w : it.x; c.y = right ? it.y : Math.min(cur.room.h - f.d, it.y + f.d);
-  cur.items.push(c); sel = c.id; afterEdit(true);
+  cur.items.push(c); settle(c); sel = c.id; afterEdit(true);
 }
 let mvStep = 10;
-function nudge(dx, dy) { const it = getSel(); if (!it) return; pushUndo(); it.x += dx; it.y += dy; afterEdit(true); }
+function nudge(dx, dy) { const it = getSel(); if (!it) return; pushUndo(); const rd = ridersOf(it); moveBy(it, dx, dy, rd); settle(it, rd); afterEdit(true); }
 
 document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
@@ -547,9 +589,10 @@ function renderProps() {
       <label>Derinlik (cm)<input id="pD" type="number" min="5" step="5" value="${it.d}"></label>
       ${TYPES[t].h ? `<label>${t === "koli" ? "Koli boyu" : "Yükseklik"} (cm)<input id="pH" type="number" min="5" step="5" value="${it.h}"></label>` : ""}
     </div>
-    <div class="grid3">
+    <div class="${isSolid(it) ? "grid2" : "grid3"}">
       <label>X (cm)<input id="pX" type="number" step="10" value="${it.x}"></label>
       <label>Y (cm)<input id="pY" type="number" step="10" value="${it.y}"></label>
+      ${isSolid(it) ? `<label title="Bir nesnenin üstüne bırakınca kendiliğinden dolar">Zeminden (cm)<input id="pZ" type="number" min="0" step="10" value="${Math.round(it.z || 0)}"></label>` : ""}
       <label>Yön<select id="pRot">${[0, 90, 180, 270].map((r) => `<option value="${r}"${r === it.rot ? " selected" : ""}>${isD ? { 0: "Ön aşağı", 90: "Ön sola", 180: "Ön yukarı", 270: "Ön sağa" }[r] : r + "°"}</option>`).join("")}</select></label>
     </div>`;
   if (isD) h += `<div class="grid3">
@@ -559,6 +602,8 @@ function renderProps() {
     </div>`;
   if (t === "koli") h += `<label>Üst üste koli sayısı<input id="pStack" type="number" min="1" max="12" value="${it.stack || 1}"></label>`;
   h += `<label>Not<input id="pNote" value="${esc(it.note || "")}" placeholder="ör. Anamas yay, M030 serisi"></label>`;
+  if (it.z > 0) { const on = cur.items.filter((o) => o !== it && isSolid(o) && centerIn(it, o) && Math.abs(topOf(o) - it.z) < 1).map((o) => o.name); h += `<div class="gaps">Üstünde durduğu: <b>${esc(on.join(", ") || "—")}</b> · zeminden ${Math.round(it.z)} cm</div>`; }
+  { const rd = isSolid(it) ? ridersOf(it) : []; if (rd.length) h += `<div class="gaps">Üstünde: ${rd.length} nesne (birlikte taşınır)</div>`; }
   if (g) h += `<div class="gaps">Boşluk: ${gl("sol", g.sol)} · ${gl("sağ", g.sag)} · ${gl("üst", g.ust)} · ${gl("alt", g.alt)}</div>`;
   if (t === "bant") { const k = kolisIn(it); h += `<div class="gaps">İçinde ${k.length} yığın, ${k.reduce((a, b) => a + (b.stack || 1), 0)} koli · alan ${((it.w * it.d) / 10000).toFixed(2)} m²</div>`; }
   h += `<div><h2 style="margin:4px 0 6px">Taşı</h2><div class="mover">
@@ -588,8 +633,9 @@ function renderProps() {
   bind("pW", (v) => (it.w = num(v, 5)));
   bind("pD", (v) => (it.d = num(v, 5)));
   bind("pH", (v) => (it.h = num(v, 1)));
-  bind("pX", (v) => (it.x = Math.round(Number(v) || 0)));
-  bind("pY", (v) => (it.y = Math.round(Number(v) || 0)));
+  bind("pX", (v) => { const rd = ridersOf(it); moveBy(it, Math.round(Number(v) || 0) - it.x, 0, rd); settle(it, rd); });
+  bind("pY", (v) => { const rd = ridersOf(it); moveBy(it, 0, Math.round(Number(v) || 0) - it.y, rd); settle(it, rd); });
+  bind("pZ", (v) => { const rd = ridersOf(it), nz = Math.max(0, Math.round(Number(v) || 0)), dz = nz - (it.z || 0); it.z = nz; rd.forEach((r) => (r.z = (r.z || 0) + dz)); });
   bind("pCols", (v) => (it.cols = Math.min(12, num(v, 1))));
   bind("pRows", (v) => (it.rows = Math.min(12, num(v, 1))));
   bind("pKova", (v) => (it.kova = Math.min(12, num(v, 0))));
@@ -682,7 +728,7 @@ function init3d() {
     if (!it || !ray.ray.intersectPlane(floorPlane, hitPt)) return;
     controls.enabled = false;
     sel = it.id; selCell = null;
-    dragging = { id: it.id, mode: "3d", dx: hitPt.x / 0.01 - it.x, dy: hitPt.z / 0.01 - it.y, before: JSON.stringify(cur), moved: false };
+    dragging = { id: it.id, mode: "3d", dx: hitPt.x / 0.01 - it.x, dy: hitPt.z / 0.01 - it.y, before: JSON.stringify(cur), moved: false, riders: ridersOf(it) };
     try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
     renderProps(); markSel3d();
   }, true);
@@ -694,9 +740,12 @@ function init3d() {
     let nx = snap(hitPt.x / 0.01 - dragging.dx), ny = snap(hitPt.z / 0.01 - dragging.dy);
     nx = Math.max(-f.w / 2, Math.min(cur.room.w - f.w / 2, nx)); ny = Math.max(-f.d / 2, Math.min(cur.room.h - f.d / 2, ny));
     if (nx === it.x && ny === it.y) return;
-    it.x = nx; it.y = ny; dragging.moved = true;
-    const g = world.children.find((o) => o.userData.id === it.id);
-    if (g) g.position.set((nx + f.w / 2) * 0.01, 0, (ny + f.d / 2) * 0.01);
+    moveBy(it, nx - it.x, ny - it.y, dragging.riders); settle(it, dragging.riders); dragging.moved = true;
+    // sürüklerken nesne (ve üstündekiler) bir şeyin üstüne gelince oraya çıkar
+    for (const o of [it, ...dragging.riders]) {
+      const g = world.children.find((c) => c.userData.id === o.id), q = fp(o);
+      if (g) g.position.set((o.x + q.w / 2) * 0.01, (o.z || 0) * 0.01, (o.y + q.d / 2) * 0.01);
+    }
     markSel3d(); renderStats();
   });
   return true;
@@ -708,7 +757,7 @@ function markSel3d() {
   const it = getSel(); if (!it) return;
   const f = fp(it), S = 0.01, h = Math.max(it.h || 0, 2) * S * (it.type === "koli" ? (it.stack || 1) : 1);
   const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(f.w * S + 0.04, h + 0.02, f.d * S + 0.04)), new THREE.LineBasicMaterial({ color: 0xf2c400 }));
-  box.name = "secim"; box.position.set((it.x + f.w / 2) * S, h / 2, (it.y + f.d / 2) * S);
+  box.name = "secim"; box.position.set((it.x + f.w / 2) * S, (it.z || 0) * S + h / 2, (it.y + f.d / 2) * S);
   three.world.add(box);
 }
 function size3d() { if (!three) return; const h = $("view3d"); const w = h.clientWidth, ht = h.clientHeight; if (!w || !ht) return; three.renderer.setSize(w, ht); three.camera.aspect = w / ht; three.camera.updateProjectionMatrix(); }
@@ -738,7 +787,7 @@ function build3d() {
   for (const it of cur.items) {
     const r = rect(it), cx = (r.x1 + r.x2) / 2 * S, cz = (r.y1 + r.y2) / 2 * S;
     const L = it.w * S, D = it.d * S, H = (it.h || 0) * S;
-    const grp = new THREE.Group(); grp.position.set(cx, 0, cz); grp.rotation.y = (-it.rot * Math.PI) / 180; grp.userData.id = it.id;
+    const grp = new THREE.Group(); grp.position.set(cx, (it.z || 0) * S, cz); grp.rotation.y = (-it.rot * Math.PI) / 180; grp.userData.id = it.id;
     if (it.type === "dolap") {
       const t = 0.018, cols = it.cols || 1, rows = it.rows || 1;
       grp.add(box(L, H, t, blue, 0, H / 2, -D / 2 + t / 2));
