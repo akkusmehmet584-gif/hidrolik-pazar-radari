@@ -149,7 +149,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
       </div>
       <svg id="plan" aria-label="Depo kat planı"></svg>
       <div id="view3d" hidden></div>
-      <div class="legend3d" id="legend3d" hidden>Sürükle: döndür · tekerlek: yakınlaştır · sağ tık: kaydır</div>
+      <div class="legend3d" id="legend3d" hidden>Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır</div>
       <div class="empty" id="empty" hidden>
         <strong>Henüz kayıtlı yerleşim yok</strong>
         <span>Fotoğraflardan çıkarılan tahmini yerleşimle ya da boş bir odayla başlayın.</span>
@@ -468,7 +468,7 @@ svg.addEventListener("pointerdown", (e) => {
 });
 // pencere düzeyinde dinle: imleç plandan taşsa da sürükleme kopmasın
 window.addEventListener("pointermove", (e) => {
-  if (!dragging) return;
+  if (!dragging || dragging.mode === "3d") return;
   const it = cur.items.find((i) => i.id === dragging.id); if (!it) return;
   const p = svgPt(e), f = fp(it);
   let nx = snap(p.x - dragging.dx), ny = snap(p.y - dragging.dy);
@@ -476,6 +476,7 @@ window.addEventListener("pointermove", (e) => {
   if (nx !== it.x || ny !== it.y) { it.x = nx; it.y = ny; dragging.moved = true; renderPlan(); renderStats(); }
 });
 const endDrag = () => {
+  if (three) three.controls.enabled = true;
   if (!dragging) return;
   if (dragging.moved) { undoStack.push(dragging.before); redoStack = []; dragging = null; afterEdit(false); }
   else dragging = null;
@@ -510,7 +511,7 @@ document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y" && !typing) { e.preventDefault(); redo(); return; }
-  if (typing || !sel || view !== "2d") return;
+  if (typing || !sel) return;
   const st = e.shiftKey ? 1 : GRID;
   if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); delSel(); }
   else if (e.key.toLowerCase() === "r" && !e.ctrlKey) rotateSel();
@@ -664,7 +665,51 @@ function init3d() {
   const world = new THREE.Group(); scene.add(world);
   three = { renderer, scene, camera, controls, world, sun, raf: 0, framed: false };
   new ResizeObserver(size3d).observe(host);
+
+  // 3D'de taşıma: nesneye basıp sürükle → zemin düzleminde kayar; boş yere basınca görünüm döner
+  const ray = new THREE.Raycaster(), floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitPt = new THREE.Vector3();
+  const floorAt = (e) => {
+    const b = renderer.domElement.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1), camera);
+    return ray;
+  };
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    if (!cur || e.button > 0) return;
+    const hits = floorAt(e).intersectObjects(world.children, true);
+    let id = null;
+    for (const h of hits) { let o = h.object; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
+    const it = id && cur.items.find((i) => i.id === id);
+    if (!it || !ray.ray.intersectPlane(floorPlane, hitPt)) return;
+    controls.enabled = false;
+    sel = it.id; selCell = null;
+    dragging = { id: it.id, mode: "3d", dx: hitPt.x / 0.01 - it.x, dy: hitPt.z / 0.01 - it.y, before: JSON.stringify(cur), moved: false };
+    try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+    renderProps(); markSel3d();
+  }, true);
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (!dragging || dragging.mode !== "3d") return;
+    const it = cur.items.find((i) => i.id === dragging.id);
+    if (!it || !floorAt(e).ray.intersectPlane(floorPlane, hitPt)) return;
+    const f = fp(it);
+    let nx = snap(hitPt.x / 0.01 - dragging.dx), ny = snap(hitPt.z / 0.01 - dragging.dy);
+    nx = Math.max(-f.w / 2, Math.min(cur.room.w - f.w / 2, nx)); ny = Math.max(-f.d / 2, Math.min(cur.room.h - f.d / 2, ny));
+    if (nx === it.x && ny === it.y) return;
+    it.x = nx; it.y = ny; dragging.moved = true;
+    const g = world.children.find((o) => o.userData.id === it.id);
+    if (g) g.position.set((nx + f.w / 2) * 0.01, 0, (ny + f.d / 2) * 0.01);
+    markSel3d(); renderStats();
+  });
   return true;
+}
+// seçili nesnenin çevresine sarı çerçeve
+function markSel3d() {
+  if (!three) return;
+  const old = three.world.getObjectByName("secim"); if (old) { three.world.remove(old); old.geometry.dispose(); }
+  const it = getSel(); if (!it) return;
+  const f = fp(it), S = 0.01, h = Math.max(it.h || 0, 2) * S * (it.type === "koli" ? (it.stack || 1) : 1);
+  const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(f.w * S + 0.04, h + 0.02, f.d * S + 0.04)), new THREE.LineBasicMaterial({ color: 0xf2c400 }));
+  box.name = "secim"; box.position.set((it.x + f.w / 2) * S, h / 2, (it.y + f.d / 2) * S);
+  three.world.add(box);
 }
 function size3d() { if (!three) return; const h = $("view3d"); const w = h.clientWidth, ht = h.clientHeight; if (!w || !ht) return; three.renderer.setSize(w, ht); three.camera.aspect = w / ht; three.camera.updateProjectionMatrix(); }
 function mat(c, o = {}) { return new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: 0.05, ...o }); }
@@ -693,7 +738,7 @@ function build3d() {
   for (const it of cur.items) {
     const r = rect(it), cx = (r.x1 + r.x2) / 2 * S, cz = (r.y1 + r.y2) / 2 * S;
     const L = it.w * S, D = it.d * S, H = (it.h || 0) * S;
-    const grp = new THREE.Group(); grp.position.set(cx, 0, cz); grp.rotation.y = (-it.rot * Math.PI) / 180;
+    const grp = new THREE.Group(); grp.position.set(cx, 0, cz); grp.rotation.y = (-it.rot * Math.PI) / 180; grp.userData.id = it.id;
     if (it.type === "dolap") {
       const t = 0.018, cols = it.cols || 1, rows = it.rows || 1;
       grp.add(box(L, H, t, blue, 0, H / 2, -D / 2 + t / 2));
@@ -739,6 +784,7 @@ function build3d() {
     const c = new THREE.Vector3(R.w * S / 2, 0.6, R.h * S / 2);
     three.controls.target.copy(c); three.camera.position.set(c.x - R.w * S * 0.45, Math.max(R.w, R.h) * S * 1.1, c.z + R.h * S * 1.55);
   }
+  markSel3d();
   three.sun.target.position.set(R.w * S / 2, 0, R.h * S / 2); three.scene.add(three.sun.target);
   three.scene.background = new THREE.Color(css("--bg"));
 }
