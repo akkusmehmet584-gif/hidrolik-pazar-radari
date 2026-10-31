@@ -58,6 +58,7 @@ h1 span { color: var(--accent); }
 .btn.danger { color: var(--bad); }
 .btn.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .btn:disabled { opacity: .45; cursor: default; }
+.btn.kilit.lock { background: var(--warn); border-color: var(--warn); color: #1b1b1b; font-weight: 600; }
 .models { display: flex; flex-wrap: wrap; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
 .mchip { background: none; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .mchip:hover { color: var(--fg); }
@@ -181,6 +182,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
         <button class="btn on" id="b2d">2D plan</button>
         <button class="btn" id="b3d">3D görünüm</button>
         <button class="btn" id="bfp">İçeride gez</button>
+        <button class="btn kilit" id="bKilit" aria-pressed="false" title="Kilitliyken nesneler seçilir ama taşınmaz, döndürülmez">🔓 Taşımayı kilitle</button>
       </div>
       <svg id="plan" aria-label="Depo kat planı"></svg>
       <div id="view3d" hidden></div>
@@ -754,6 +756,7 @@ svg.addEventListener("pointerdown", (e) => {
   const it = cur.items.find((i) => i.id === g.dataset.id); if (!it) return;
   if (sel !== it.id) { sel = it.id; selCell = null; }
   const p = svgPt(e);
+  if (kilit) { renderPlan(); renderProps(); return; }  // kilitliyken yalnız seçilir
   dragging = { id: it.id, dx: p.x - it.x, dy: p.y - it.y, before: JSON.stringify(cur), moved: false, riders: ridersOf(it) };
   try { svg.setPointerCapture(e.pointerId); } catch {}
   e.preventDefault();
@@ -784,7 +787,14 @@ svg.addEventListener("dragstart", (e) => e.preventDefault());
 
 /* ---------- işlemler ---------- */
 function getSel() { return cur && cur.items.find((i) => i.id === sel); }
+/* taşıma kilidi: açıkken nesneler seçilir, stok işlenir ama yeri / yönü değişmez (tercih bu tarayıcıda hatırlanır) */
+let kilit = (() => { try { return localStorage.getItem("depo-ikiz-kilit") === "1"; } catch { return false; } })();
+function kilitUyar() { if (!kilit) return false; setSave("Taşıma kilitli — açmak için kilit düğmesine basın", true); setTimeout(() => setSave(mode === "local" ? "Bu tarayıcıda kayıtlı" : "Kaydedildi"), 2500); return true; }
+function kilitCiz() { const b = $("bKilit"); b.classList.toggle("lock", kilit); b.textContent = kilit ? "🔒 Taşıma kilitli" : "🔓 Taşımayı kilitle"; b.setAttribute("aria-pressed", kilit); }
+$("bKilit").addEventListener("click", () => { kilit = !kilit; try { localStorage.setItem("depo-ikiz-kilit", kilit ? "1" : "0"); } catch {} kilitCiz(); renderProps(); });
+kilitCiz();
 function rotateSel() {
+  if (kilitUyar()) return;
   const it = getSel(); if (!it) return; pushUndo();
   const f = fp(it), cx = it.x + f.w / 2, cy = it.y + f.d / 2;
   it.rot = (it.rot + 90) % 360; const n = fp(it);
@@ -808,7 +818,7 @@ function dupSel() {
   cur.items.push(c); settle(c); sel = c.id; afterEdit(true);
 }
 let mvStep = 10;
-function nudge(dx, dy) { const it = getSel(); if (!it) return; pushUndo(); const rd = ridersOf(it); moveBy(it, dx, dy, rd); settle(it, rd); afterEdit(true); }
+function nudge(dx, dy) { if (kilitUyar()) return; const it = getSel(); if (!it) return; pushUndo(); const rd = ridersOf(it); moveBy(it, dx, dy, rd); settle(it, rd); afterEdit(true); }
 
 document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
@@ -931,10 +941,10 @@ function renderProps() {
       ${TYPES[t].h ? `<label>${t === "koli" ? "Koli boyu" : "Yükseklik"} (cm)<input id="pH" type="number" min="5" step="5" value="${it.h}"></label>` : ""}
     </div>
     <div class="${isSolid(it) ? "grid2" : "grid3"}">
-      <label>X (cm)<input id="pX" type="number" step="10" value="${it.x}"></label>
-      <label>Y (cm)<input id="pY" type="number" step="10" value="${it.y}"></label>
-      ${isSolid(it) ? `<label title="Bir nesnenin üstüne bırakınca kendiliğinden dolar">Zeminden (cm)<input id="pZ" type="number" min="0" step="10" value="${Math.round(it.z || 0)}"></label>` : ""}
-      <label>Yön<select id="pRot">${[0, 90, 180, 270].map((r) => `<option value="${r}"${r === it.rot ? " selected" : ""}>${isD ? { 0: "Ön aşağı", 90: "Ön sola", 180: "Ön yukarı", 270: "Ön sağa" }[r] : r + "°"}</option>`).join("")}</select></label>
+      <label>X (cm)<input id="pX" type="number" step="10" value="${it.x}"${kilit ? " disabled" : ""}></label>
+      <label>Y (cm)<input id="pY" type="number" step="10" value="${it.y}"${kilit ? " disabled" : ""}></label>
+      ${isSolid(it) ? `<label title="Bir nesnenin üstüne bırakınca kendiliğinden dolar">Zeminden (cm)<input id="pZ" type="number" min="0" step="10" value="${Math.round(it.z || 0)}"${kilit ? " disabled" : ""}></label>` : ""}
+      <label>Yön<select id="pRot"${kilit ? " disabled" : ""}>${[0, 90, 180, 270].map((r) => `<option value="${r}"${r === it.rot ? " selected" : ""}>${isD ? { 0: "Ön aşağı", 90: "Ön sola", 180: "Ön yukarı", 270: "Ön sağa" }[r] : r + "°"}</option>`).join("")}</select></label>
     </div>`;
   if (isD) h += `<div class="grid2">
       <label>Sütun<input id="pCols" type="number" min="1" max="12" value="${it.cols}"></label>
@@ -947,14 +957,15 @@ function renderProps() {
   { const rd = isSolid(it) ? ridersOf(it) : []; if (rd.length) h += `<div class="gaps">Üstünde: ${rd.length} nesne (birlikte taşınır)</div>`; }
   if (g) h += `<div class="gaps">Boşluk: ${gl("sol", g.sol)} · ${gl("sağ", g.sag)} · ${gl("üst", g.ust)} · ${gl("alt", g.alt)}</div>`;
   if (t === "bant") { const k = kolisIn(it); h += `<div class="gaps">İçinde ${k.length} yığın, ${k.reduce((a, b) => a + (b.stack || 1), 0)} koli · alan ${((it.w * it.d) / 10000).toFixed(2)} m²</div>`; }
-  h += `<div><h2 style="margin:4px 0 6px">Taşı</h2><div class="mover">
+  if (kilit) h += `<div class="gaps">🔒 Taşıma kilitli: yer ve yön değiştirilemez. Açmak için plan üstündeki kilit düğmesine basın.</div>`;
+  else h += `<div><h2 style="margin:4px 0 6px">Taşı</h2><div class="mover">
       <span></span><button class="btn" data-mv="0,-1" aria-label="Yukarı taşı">↑</button><span></span>
       <button class="btn" data-mv="-1,0" aria-label="Sola taşı">←</button>
       <select id="mvStep" aria-label="Adım"><option value="10">10 cm</option><option value="50">50 cm</option><option value="100">1 m</option><option value="1">1 cm</option></select>
       <button class="btn" data-mv="1,0" aria-label="Sağa taşı">→</button>
       <span></span><button class="btn" data-mv="0,1" aria-label="Aşağı taşı">↓</button><span></span>
     </div></div>`;
-  h += `<div class="acts"><button class="btn" id="aRot">↻ Döndür</button><button class="btn" id="aDup">Çoğalt</button><button class="btn danger" id="aDel">Sil</button></div>`;
+  h += `<div class="acts"><button class="btn" id="aRot"${kilit ? " disabled" : ""}>↻ Döndür</button><button class="btn" id="aDup">Çoğalt</button><button class="btn danger" id="aDel">Sil</button></div>`;
   if (isD) {
     h += `<div><h2 style="margin:6px 0 6px">Bölmeler · ön görünüş</h2><div class="cells" style="grid-template-columns:repeat(${it.cols},1fr)">`;
     for (let r = 0; r < it.rows; r++) for (let c = 0; c < it.cols; c++) {
@@ -989,8 +1000,7 @@ function renderProps() {
     pushUndo(); const f = fp(it), cx = it.x + f.w / 2, cy = it.y + f.d / 2;
     it.rot = Number(e.target.value); const n = fp(it); it.x = snap(cx - n.w / 2, 5); it.y = snap(cy - n.d / 2, 5); afterEdit(true);
   });
-  $("mvStep").value = String(mvStep);
-  $("mvStep").addEventListener("change", (e) => (mvStep = Number(e.target.value)));
+  if ($("mvStep")) { $("mvStep").value = String(mvStep); $("mvStep").addEventListener("change", (e) => (mvStep = Number(e.target.value))); }
   p.querySelectorAll("[data-mv]").forEach((b) => b.addEventListener("click", () => { const [dx, dy] = b.dataset.mv.split(",").map(Number); nudge(dx * mvStep, dy * mvStep); }));
   $("aRot").addEventListener("click", rotateSel);
   $("aDup").addEventListener("click", dupSel);
@@ -1164,7 +1174,9 @@ function init3d() {
     // raftaki kutu/pakete tıklanınca o bölmenin stok formu açılır
     if (it && cellHit) { sel = it.id; selCell = cellHit; panel = "nesne"; renderProps(); build3d(); setTimeout(() => $("cellBox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); return; }
     // içeride gezerken boş yeri sürüklemek etrafa bakmaktır
-    if (!it) { if (view === "fp") { look = { x: e.clientX, y: e.clientY, yaw: player.yaw, pitch: player.pitch }; try { renderer.domElement.setPointerCapture(e.pointerId); } catch {} } return; }
+    // taşıma kilitliyse nesneye basmak yalnız seçer; sürükleme görünümü döndürür / etrafa baktırır
+    if (it && kilit) { sel = it.id; selCell = null; renderProps(); markSel3d(); }
+    if (!it || kilit) { if (view === "fp") { look = { x: e.clientX, y: e.clientY, yaw: player.yaw, pitch: player.pitch }; try { renderer.domElement.setPointerCapture(e.pointerId); } catch {} } return; }
     // yüksekteki nesneyi kendi taban yüksekliğindeki düzlemde sürükle (zemine göre sürüklemek fazla zıplatıyor)
     floorPlane.constant = -(it.z || 0) * 0.01;
     if (!ray.ray.intersectPlane(floorPlane, hitPt)) return;
