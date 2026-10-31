@@ -58,6 +58,14 @@ h1 span { color: var(--accent); }
 .btn.danger { color: var(--bad); }
 .btn.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .btn:disabled { opacity: .45; cursor: default; }
+.models { display: flex; flex-wrap: wrap; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+.mchip { background: none; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.mchip:hover { color: var(--fg); }
+.mchip.on { background: var(--accent); color: var(--accent-ink); }
+.mchip.add { color: var(--accent); border: 1px dashed var(--accent); }
+.modelacts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.modelacts input { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 140px; }
+.chg { font-size: 12px; font-weight: 600; color: var(--warn); }
 .save { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .save.err { color: var(--bad); }
 
@@ -146,10 +154,8 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
   <header>
     <h1>Bileşen Deposu <span>İkizi</span></h1>
     <div class="scen">
-      <select id="scenSel" aria-label="Senaryo seç"></select>
-      <input id="scenName" aria-label="Senaryo adı" placeholder="Senaryo adı">
-      <button class="btn" id="scenCopy" title="Bu yerleşimin kopyasını oluşturup onun üzerinde dene">Kopyasıyla dene</button>
-      <span id="scenDelWrap"><button class="btn danger" id="scenDel">Senaryoyu sil</button></span>
+      <div class="models" id="models" role="tablist" aria-label="Yerleşim modelleri"></div>
+      <span class="modelacts" id="modelActs"></span>
       <button class="btn" id="undo" title="Geri al (Ctrl+Z)">↶ Geri</button>
       <button class="btn" id="redo" title="Yinele (Ctrl+Y)">↷ İleri</button>
     </div>
@@ -257,9 +263,10 @@ function scheduleSave() {
 }
 async function flushSave() {
   if (!dirty || !curId) return;
-  if (mode === "local") { lsWrite(); dirty = false; setSave("Bu tarayıcıda kayıtlı"); return; }
+  if (mode === "local") { scenarios[curId] = clone(cur); lsWrite(); dirty = false; setSave("Bu tarayıcıda kayıtlı"); return; }
   if (saving) { clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 400); return; }
   saving = true; dirty = false; setSave("Kaydediliyor…");
+  scenarios[curId] = clone(cur);
   const body = clone(cur); body.updated = new Date().toISOString(); cur.updated = lastWrite = body.updated;
   try { await db.collection("senaryolar").doc(curId).set(body); setSave("Kaydedildi"); saveErr = false; }
   catch (e) {
@@ -289,6 +296,9 @@ function openScenario(id) {
   // eski sürümlerden kalan yazı-bölmeler (miktarsız) varken de çalışır; yalnız boş bölmeleri doldurur, bir kez
   if (!cur.ornekDolduruldu && !tumBolmeler().some((b) => b.c.miktar != null)) { ornekDoldur(); fixed = true; }
   cur.hareketler = cur.hareketler || [];
+  if (id === MEVCUT && !cur.yerlesimBaz) { cur.yerlesimBaz = yalinYerlesim(cur); fixed = true; }
+  if (id !== MEVCUT && cur.yerlesimBaz) { delete cur.yerlesimBaz; fixed = true; }
+  baz = id === MEVCUT ? { ...clone(cur.yerlesimBaz), name: cur.name } : null; onay = null;
   lsSetCur(id); renderAll(true);
   if (fixed) scheduleSave();
   hashGit();
@@ -339,33 +349,102 @@ async function boot() {
   }, (e) => { clearTimeout(timer); setSave("Bağlantı kesildi: değişiklikler kaydedilmiyor", true); });
 }
 
-/* ---------- senaryo çubuğu ---------- */
-let delArmed = false;
-function renderScenBar() {
-  const s = $("scenSel");
-  const ids = Object.keys(scenarios).sort((a, b) => (a === "mevcut" ? -1 : b === "mevcut" ? 1 : (scenarios[a].name || "").localeCompare(scenarios[b].name || "", "tr")));
-  s.innerHTML = ids.map((id) => `<option value="${esc(id)}"${id === curId ? " selected" : ""}>${esc(scenarios[id].name || id)}</option>`).join("");
-  if (document.activeElement !== $("scenName")) $("scenName").value = cur ? cur.name || "" : "";
-  const dis = !cur;
-  ["scenSel", "scenName", "scenCopy"].forEach((k) => ($(k).disabled = dis));
-  const w = $("scenDelWrap");
-  if (delArmed) w.innerHTML = `<span class="confirm">Silinsin mi? <button class="btn danger" id="delYes">Evet, sil</button><button class="btn" id="delNo">Vazgeç</button></span>`;
-  else w.innerHTML = `<button class="btn danger" id="scenDel" ${dis || ids.length < 2 ? "disabled" : ""} title="${ids.length < 2 ? "Tek senaryo silinemez" : "Bu senaryoyu sil"}">Senaryoyu sil</button>`;
+/* ---------- mevcut durum ve modeller ----------
+   "mevcut" deponun bugünkü hali; modeller onun denenmiş kopyaları.
+   Mevcut durumda yerleşim değişirse değişiklik bir modele kaydedilir, mevcut durum bozulmaz.
+   Stok (bölme içerikleri ve hareketler) yerleşimden ayrı tutulur: dönüşlerde stok korunur. */
+const MEVCUT = "mevcut";
+let baz = null, onay = null;  // baz: mevcut durumun açıldığı andaki hali; onay: iki adımlı işlem bekleyen düğme
+const yerlesimAnahtar = (s) => norm({ room: s.room, items: s.items.map(({ cells, ...r }) => r) });
+const mevcutDegisti = () => curId === MEVCUT && cur && baz && yerlesimAnahtar(cur) !== yerlesimAnahtar(baz);
+// yerleşimi `yer`den, stok verisini `stok`tan alan yeni durum
+function birlestir(yer, stok) {
+  const out = clone(yer), byId = Object.fromEntries((stok.items || []).map((i) => [i.id, i]));
+  out.items.forEach((i) => { if (i.type === "dolap") i.cells = byId[i.id] ? clone(byId[i.id].cells || {}) : i.cells || {}; });
+  out.hareketler = clone(stok.hareketler || []); out.name = stok.name; out.ornekDolduruldu = stok.ornekDolduruldu;
+  if (stok.yerlesimBaz) out.yerlesimBaz = clone(stok.yerlesimBaz); else delete out.yerlesimBaz;
+  return out;
 }
-$("scenSel").addEventListener("change", (e) => { flushSave(); openScenario(e.target.value); });
-$("scenName").addEventListener("input", (e) => { if (!cur) return; cur.name = e.target.value; scheduleSave(); });
-$("scenName").addEventListener("change", () => renderScenBar());
-$("scenCopy").addEventListener("click", async () => { if (!cur) return; await flushSave(); const b = clone(cur); b.name = (cur.name || "Senaryo").replace(/ \(fotoğraflardan tahmini\)$/, "") + " – deneme " + (Object.keys(scenarios).length); createScenario(b); });
-$("scenDelWrap").addEventListener("click", async (e) => {
-  const t = e.target.closest("button"); if (!t) return;
-  if (t.id === "scenDel") { delArmed = true; renderScenBar(); return; }
-  if (t.id === "delNo") { delArmed = false; renderScenBar(); return; }
-  if (t.id === "delYes") {
-    delArmed = false; const id = curId; clearTimeout(saveTimer); dirty = false;
+// mevcut durumun "başa dön" noktası kaydın içinde saklanır (sayfa yenilense de kaybolmaz); stoksuz, küçük
+const yalinYerlesim = (s) => ({ room: clone(s.room), items: s.items.map(({ cells, ...r }) => clone(r)) });
+function modelIds() { return Object.keys(scenarios).filter((id) => id !== MEVCUT).sort(); }
+function yeniModelAdi() {
+  const n = Object.values(scenarios).map((s) => /^Model (\d+)$/.exec(s.name || "")).filter(Boolean).map((m) => +m[1]);
+  return "Model " + (Math.max(0, ...n, modelIds().length) + 1);
+}
+function renderScenBar() {
+  const ids = (scenarios[MEVCUT] ? [MEVCUT] : []).concat(modelIds());
+  $("models").innerHTML = ids.map((id) => `<button class="mchip${id === curId ? " on" : ""}" role="tab" aria-selected="${id === curId}" data-open="${esc(id)}">${id === MEVCUT ? "Mevcut durum" : esc(scenarios[id].name || "Model")}</button>`).join("")
+    + `<button class="mchip add" id="mAdd" title="Şu an gördüğünüz yerleşimin kopyasıyla yeni model açar">+ Model ekle</button>`;
+  let a = "";
+  if (!cur) a = "";
+  else if (curId === MEVCUT) {
+    if (mevcutDegisti()) a = `<span class="chg">Mevcut durumda değişiklik var</span>
+      <button class="btn primary" id="mKaydet">Model olarak kaydet</button>`
+      + (onay === "degistir" ? `<span class="confirm">Sahada bu değişikliği yaptınız mı? <button class="btn primary" id="mDegistirEvet">Evet, mevcut durumu değiştir</button><button class="btn" id="mVazgec">Vazgeç</button></span>`
+        : `<button class="btn" id="mDegistir" title="Depoda fiilen yaptığınız değişikliği mevcut durum olarak kaydeder">✓ Mevcut durumu değiştir</button>`)
+      + `<button class="btn" id="mDon" title="Yerleşimi son kaydedilen mevcut duruma getirir; stok kayıtları korunur">↺ Mevcut duruma dön</button>`;
+    else a = `<span class="hint" style="margin:0">Değişiklik yapınca "Model olarak kaydet" çıkar.</span>`;
+  } else {
+    a = `<input id="mAd" aria-label="Model adı" value="${esc(cur.name || "")}">
+      <button class="btn primary" id="mDon">↺ Mevcut duruma dön</button>`
+      + (onay === "uygula" ? `<span class="confirm">Depo bu modele göre düzenlendi mi? <button class="btn primary" id="mUygulaEvet">Evet, mevcut durum yap</button><button class="btn" id="mVazgec">Vazgeç</button></span>`
+        : `<button class="btn" id="mUygula" title="Depoyu fiilen bu modele göre düzenlediyseniz mevcut durum bu yerleşim olur">✓ Mevcut durumu bununla değiştir</button>`)
+      + (onay === "sil" ? `<span class="confirm">${esc(cur.name)} silinsin mi? <button class="btn danger" id="mSilEvet">Evet, sil</button><button class="btn" id="mVazgec">Vazgeç</button></span>`
+        : `<button class="btn danger" id="mSil">Modeli sil</button>`);
+  }
+  const ma = $("modelActs"), focused = document.activeElement?.id === "mAd";
+  if (!focused) ma.innerHTML = a;
+}
+async function modeleKaydet() {
+  // mevcut durumdaki değişikliği yeni modele taşı, mevcut durumu açıldığı haline döndür
+  const model = clone(cur); model.name = yeniModelAdi(); delete model.updated; delete model.yerlesimBaz;
+  cur = birlestir(baz, cur); dirty = true; await flushSave();
+  await createScenario(model);
+  setSave(`${model.name} kaydedildi · mevcut durum korundu`);
+}
+async function mevcutaDon() {
+  onay = null;
+  if (curId === MEVCUT) { if (!mevcutDegisti()) return; pushUndo(); cur = birlestir(baz, cur); afterEdit(true); setSave("Mevcut duruma dönüldü"); return; }
+  await flushSave(); if (scenarios[MEVCUT]) openScenario(MEVCUT);
+}
+$("models").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b || !cur) return;
+  onay = null;
+  if (b.id === "mAdd") {
+    if (mevcutDegisti()) return modeleKaydet();
+    await flushSave(); const m = clone(cur); m.name = yeniModelAdi(); delete m.updated; delete m.yerlesimBaz; return createScenario(m);
+  }
+  if (b.dataset.open && b.dataset.open !== curId) { await flushSave(); openScenario(b.dataset.open); }
+});
+$("modelActs").addEventListener("input", (e) => { if (e.target.id === "mAd" && cur) { cur.name = e.target.value; scenarios[curId] = clone(cur); scheduleSave(); } });
+$("modelActs").addEventListener("change", (e) => { if (e.target.id === "mAd") renderScenBar(); });
+$("modelActs").addEventListener("click", async (e) => {
+  const t = e.target.closest("button"); if (!t || !cur) return;
+  if (t.id === "mKaydet") return modeleKaydet();
+  if (t.id === "mDon") return mevcutaDon();
+  if (t.id === "mSil" || t.id === "mUygula" || t.id === "mDegistir") { onay = { mSil: "sil", mUygula: "uygula", mDegistir: "degistir" }[t.id]; return renderScenBar(); }
+  if (t.id === "mDegistirEvet") {
+    // sahadaki fiziksel değişiklik: ekrandaki yerleşim yeni mevcut durum (yeni başa dön noktası) olur
+    onay = null; cur.yerlesimBaz = yalinYerlesim(cur); baz = { ...clone(cur.yerlesimBaz), name: cur.name };
+    dirty = true; await flushSave(); renderAll(true); setSave("Mevcut durum güncellendi");
+    return;
+  }
+  if (t.id === "mVazgec") { onay = null; return renderScenBar(); }
+  if (t.id === "mSilEvet") {
+    onay = null; const id = curId; clearTimeout(saveTimer); dirty = false;
     delete scenarios[id];
     if (mode === "db") { try { await db.collection("senaryolar").doc(id).delete(); } catch { setSave("Silinemedi", true); } } else lsWrite();
-    const rest = Object.keys(scenarios); curId = null;
-    if (rest.length) openScenario(rest.includes("mevcut") ? "mevcut" : rest[0]); else { cur = null; renderAll(true); }
+    curId = null; openScenario(scenarios[MEVCUT] ? MEVCUT : Object.keys(scenarios)[0]);
+    return;
+  }
+  if (t.id === "mUygulaEvet") {
+    // modelin yerleşimi + mevcut durumun stok kayıtları = yeni mevcut durum
+    onay = null; await flushSave();
+    const yeni = birlestir(cur, scenarios[MEVCUT] || cur), ad = cur.name;
+    yeni.yerlesimBaz = yalinYerlesim(yeni);  // yeni başa dön noktası bu yerleşim
+    curId = MEVCUT; cur = yeni; dirty = true; await flushSave(); openScenario(MEVCUT);
+    setSave(`${ad} artık mevcut durum`);
   }
 });
 $("undo").addEventListener("click", undo);
@@ -646,7 +725,7 @@ function renderPlan() {
       g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="${fill}" stroke="${stroke || "var(--wall)"}" stroke-width="${stroke ? 3 : 1}"/>`;
       g += `<text x="${cx}" y="${cy}" font-size="${Math.max(10, Math.min(14, Math.min(w, d) * 0.4))}" fill="${it.type === "engel" ? "var(--fg)" : "#26303b"}" text-anchor="middle" dominant-baseline="central" font-family="var(--font-body)" font-weight="600" ${d > w * 1.5 ? `transform="rotate(-90 ${cx} ${cy})"` : ""}>${esc(it.name)}</text>`;
     }
-    if (it.z > 0) g += `<g pointer-events="none"><rect x="${r.x2 - 34}" y="${r.y1 - 9}" width="38" height="16" rx="3" fill="var(--tape)"/><text x="${r.x2 - 15}" y="${r.y1}" font-size="11" text-anchor="middle" dominant-baseline="central" fill="#1b1b1b" font-family="var(--font-code)">↑${Math.round(it.z)}</text></g>`;
+    if (it.z > 0 && it.type !== "kova") g += `<g pointer-events="none"><rect x="${r.x2 - 34}" y="${r.y1 - 9}" width="38" height="16" rx="3" fill="var(--tape)"/><text x="${r.x2 - 15}" y="${r.y1}" font-size="11" text-anchor="middle" dominant-baseline="central" fill="#1b1b1b" font-family="var(--font-code)">↑${Math.round(it.z)}</text></g>`;
     g += `</g>`;
     s += g;
   }
