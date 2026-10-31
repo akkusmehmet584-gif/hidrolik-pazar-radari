@@ -168,7 +168,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
 const TYPES = {
   dolap: { label: "Kitaplık / dolap", w: 190, d: 45, h: 250, solid: true },
   koli:  { label: "Koli yığını", w: 50, d: 40, h: 30, solid: true },
-  kova:  { label: "Kova (yerde)", w: 45, d: 45, h: 100, solid: true },
+  kova:  { label: "Kova", w: 45, d: 45, h: 100, solid: true },
   bant:  { label: "Bant alanı (zemin)", w: 200, d: 120, h: 0, solid: false },
   tezgah:{ label: "Tezgâh / korkuluk", w: 300, d: 60, h: 110, solid: true },
   masa:  { label: "Masa", w: 100, d: 50, h: 75, solid: true },
@@ -247,6 +247,8 @@ function openScenario(id) {
   const ref = cur.items.find((i) => i.type === "dolap" && !(i.w === 160 && i.d === 40 && i.h === 210));
   let fixed = false;
   if (ref) cur.items.forEach((i) => { if (i.type === "dolap" && i.w === 160 && i.d === 40 && i.h === 210) { const f = fp(i), cx = i.x + f.w / 2, cy = i.y + f.d / 2; Object.assign(i, { w: ref.w, d: ref.d, h: ref.h }); const n = fp(i); i.x = snap(cx - n.w / 2, 5); i.y = snap(cy - n.d / 2, 5); fixed = true; } });
+  // dolabın parçası olarak çizilen kovaları tek tek taşınabilen kova nesnelerine çevir
+  cur.items.filter((i) => i.type === "dolap" && i.kova > 0).forEach((d) => { const n = d.kova; d.kova = 0; for (let k = 0; k < n; k++) addKovaOn(d, k, n); fixed = true; });
   lsSetCur(id); renderAll(true);
   if (fixed) scheduleSave();
 }
@@ -388,6 +390,21 @@ function settle(it, riders = []) {
   const z = below.length ? Math.max(...below.map(topOf)) : 0;
   it.z = z; riders.forEach((r) => (r.z = (r.z || 0) + (z - old)));
 }
+// dolabın üstüne kova koy: k/n verilirse boy boyunca eşit aralıkla, yoksa ilk boş yere
+function addKovaOn(d, k, n) {
+  const r = rect(d), along = r.x2 - r.x1 >= r.y2 - r.y1, len = along ? r.x2 - r.x1 : r.y2 - r.y1, KD = 45;
+  const at = (t) => (along ? { x: Math.round(r.x1 + t - KD / 2), y: Math.round((r.y1 + r.y2) / 2 - KD / 2) } : { x: Math.round((r.x1 + r.x2) / 2 - KD / 2), y: Math.round(r.y1 + t - KD / 2) });
+  let p;
+  if (n) p = at(((k + 0.5) * len) / n);
+  else {
+    const on = ridersOf(d);
+    for (let t = KD / 2; t <= len - KD / 2 && !p; t += 5) { const c = at(t), q = { x1: c.x, y1: c.y, x2: c.x + KD, y2: c.y + KD }; if (!on.some((o) => hit(q, rect(o)))) p = c; }
+    p = p || at(len / 2);
+  }
+  const it = { id: "kv" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), type: "kova", name: "Kova", w: KD, d: KD, h: 100, rot: 0, x: p.x, y: p.y, z: topOf(d) };
+  cur.items.push(it);
+  return it;
+}
 function moveBy(it, dx, dy, riders) { it.x += dx; it.y += dy; riders.forEach((r) => { r.x += dx; r.y += dy; }); }
 function problems() {
   const bad = new Set(), solids = cur.items.filter(isSolid);
@@ -436,7 +453,7 @@ function renderPlan() {
     const isSel = it.id === sel, isBad = bad.has(it.id);
     const stroke = isBad ? "var(--bad)" : isSel ? "var(--fg)" : null;
     let g = `<g data-id="${esc(it.id)}" style="cursor:move">`;
-    if (it.z > 0) g += `<rect x="${r.x1 + 4}" y="${r.y1 + 4}" width="${w}" height="${d}" fill="#000" opacity=".28"/>`;
+    if (it.z > 0) g += `<rect x="${r.x1 + 4}" y="${r.y1 + 4}" width="${w}" height="${d}" fill="#000" opacity=".28" pointer-events="none"/>`;
     const fs = Math.max(10, Math.min(18, Math.min(w, d) * 0.45));
     if (it.type === "dolap") {
       g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="var(--accent)" stroke="${stroke || "var(--accent)"}" stroke-width="${stroke ? 3 : 1}"/>`;
@@ -451,7 +468,10 @@ function renderPlan() {
       g += `<line x1="${r.x1}" y1="${cy}" x2="${r.x2}" y2="${cy}" stroke="var(--box-edge)" stroke-width="1" opacity=".6"/>`;
       g += `<text x="${cx}" y="${cy}" font-size="13" fill="#2b1d0c" text-anchor="middle" dominant-baseline="central" font-family="var(--font-code)">×${it.stack || 1}</text>`;
     } else if (it.type === "kova") {
-      g += `<circle cx="${cx}" cy="${cy}" r="${Math.min(w, d) / 2}" fill="#e0405033" stroke="${stroke || "#e04050"}" stroke-width="${stroke ? 3 : 2}"/>`;
+      // dolap üstündeki kovada yalnız iç daire tutulur; çevresi alttaki dolabı tutmaya kalsın
+      const kr = Math.min(w, d) / 2;
+      g += `<circle cx="${cx}" cy="${cy}" r="${kr}" fill="#e0405033" stroke="${stroke || "#e04050"}" stroke-width="${stroke ? 3 : 2}" ${it.z > 0 ? 'pointer-events="none"' : ""}/>`;
+      if (it.z > 0) g += `<circle cx="${cx}" cy="${cy}" r="${kr * 0.5}" fill="#e04050" opacity=".55"/>`;
     } else if (it.type === "bant") {
       const k = kolisIn(it).reduce((a, b) => a + (b.stack || 1), 0);
       g += `<rect x="${r.x1 + 2.5}" y="${r.y1 + 2.5}" width="${Math.max(0, w - 5)}" height="${Math.max(0, d - 5)}" fill="color-mix(in srgb, var(--tape) 10%, transparent)" stroke="var(--tape)" stroke-width="5"/>`;
@@ -595,11 +615,11 @@ function renderProps() {
       ${isSolid(it) ? `<label title="Bir nesnenin üstüne bırakınca kendiliğinden dolar">Zeminden (cm)<input id="pZ" type="number" min="0" step="10" value="${Math.round(it.z || 0)}"></label>` : ""}
       <label>Yön<select id="pRot">${[0, 90, 180, 270].map((r) => `<option value="${r}"${r === it.rot ? " selected" : ""}>${isD ? { 0: "Ön aşağı", 90: "Ön sola", 180: "Ön yukarı", 270: "Ön sağa" }[r] : r + "°"}</option>`).join("")}</select></label>
     </div>`;
-  if (isD) h += `<div class="grid3">
+  if (isD) h += `<div class="grid2">
       <label>Sütun<input id="pCols" type="number" min="1" max="12" value="${it.cols}"></label>
       <label>Kat<input id="pRows" type="number" min="1" max="12" value="${it.rows}"></label>
-      <label>Üstte kova<input id="pKova" type="number" min="0" max="12" value="${it.kova || 0}"></label>
-    </div>`;
+    </div>
+    <div class="acts"><button class="btn" id="aKova">+ Üstüne kova koy</button><span class="gaps">Üstünde ${ridersOf(it).filter((r) => r.type === "kova").length} kova</span></div>`;
   if (t === "koli") h += `<label>Üst üste koli sayısı<input id="pStack" type="number" min="1" max="12" value="${it.stack || 1}"></label>`;
   h += `<label>Not<input id="pNote" value="${esc(it.note || "")}" placeholder="ör. Anamas yay, M030 serisi"></label>`;
   if (it.z > 0) { const on = cur.items.filter((o) => o !== it && isSolid(o) && centerIn(it, o) && Math.abs(topOf(o) - it.z) < 1).map((o) => o.name); h += `<div class="gaps">Üstünde durduğu: <b>${esc(on.join(", ") || "—")}</b> · zeminden ${Math.round(it.z)} cm</div>`; }
@@ -638,7 +658,7 @@ function renderProps() {
   bind("pZ", (v) => { const rd = ridersOf(it), nz = Math.max(0, Math.round(Number(v) || 0)), dz = nz - (it.z || 0); it.z = nz; rd.forEach((r) => (r.z = (r.z || 0) + dz)); });
   bind("pCols", (v) => (it.cols = Math.min(12, num(v, 1))));
   bind("pRows", (v) => (it.rows = Math.min(12, num(v, 1))));
-  bind("pKova", (v) => (it.kova = Math.min(12, num(v, 0))));
+  $("aKova")?.addEventListener("click", () => { pushUndo(); addKovaOn(it); afterEdit(true); });
   bind("pStack", (v) => (it.stack = Math.min(12, num(v, 1))));
   bind("pNote", (v) => (it.note = v));
   bind("pCell", (v) => { it.cells = it.cells || {}; if (v.trim()) it.cells[selCell] = v; else delete it.cells[selCell]; });
@@ -725,7 +745,10 @@ function init3d() {
     let id = null;
     for (const h of hits) { let o = h.object; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
     const it = id && cur.items.find((i) => i.id === id);
-    if (!it || !ray.ray.intersectPlane(floorPlane, hitPt)) return;
+    if (!it) return;
+    // yüksekteki nesneyi kendi taban yüksekliğindeki düzlemde sürükle (zemine göre sürüklemek fazla zıplatıyor)
+    floorPlane.constant = -(it.z || 0) * 0.01;
+    if (!ray.ray.intersectPlane(floorPlane, hitPt)) return;
     controls.enabled = false;
     sel = it.id; selCell = null;
     dragging = { id: it.id, mode: "3d", dx: hitPt.x / 0.01 - it.x, dy: hitPt.z / 0.01 - it.y, before: JSON.stringify(cur), moved: false, riders: ridersOf(it) };
