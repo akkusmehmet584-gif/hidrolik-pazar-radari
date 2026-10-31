@@ -1159,7 +1159,7 @@ function init3d() {
     if (!cur || e.button > 0) return;
     const hits = floorAt(e).intersectObjects(world.children, true);
     let id = null, cellHit = null;
-    for (const h of hits) { let o = h.object; cellHit = o.userData.cell || null; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
+    for (const h of hits) { if (h.object.isSprite && !h.object.visible) continue; let o = h.object; cellHit = o.userData.cell || null; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
     const it = id && cur.items.find((i) => i.id === id);
     // raftaki kutu/pakete tıklanınca o bölmenin stok formu açılır
     if (it && cellHit) { sel = it.id; selCell = cellHit; panel = "nesne"; renderProps(); build3d(); setTimeout(() => $("cellBox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); return; }
@@ -1182,6 +1182,20 @@ function init3d() {
     camera.updateProjectionMatrix();
     fpFov = camera.fov; showFov();
   }, { passive: false });
+  // fare hangi dolabın üstündeyse onun numarasını göster (60 ms'de bir bakılır)
+  let hoverT = 0;
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (look || dragging || e.timeStamp - hoverT < 60) return;
+    hoverT = e.timeStamp;
+    let id = null;
+    for (const h of floorAt(e).intersectObjects(world.children, true)) {
+      if (h.object.isSprite && !h.object.visible) continue;
+      let o = h.object; while (o && !o.userData.id) o = o.parent;
+      if (o) { const it = cur?.items.find((i) => i.id === o.userData.id); id = it && it.type === "dolap" ? it.id : null; break; }
+    }
+    setHover(id);
+  });
+  renderer.domElement.addEventListener("pointerleave", () => setHover(null));
   renderer.domElement.addEventListener("pointermove", (e) => {
     if (look) {
       // fareyi sağa çekince sağa, yukarı çekince yukarı bakılır
@@ -1207,7 +1221,11 @@ function init3d() {
   return true;
 }
 // seçili nesnenin çevresine sarı çerçeve
+let hoverId = null;
+function etiketleriGuncelle() { three?.world.traverse((o) => { if (o.userData.etiket) o.visible = o.userData.etiket === hoverId || o.userData.etiket === sel; }); }
+function setHover(id) { if (id === hoverId) return; hoverId = id; $("stage").dataset.hover = id || ""; etiketleriGuncelle(); }
 function markSel3d() {
+  etiketleriGuncelle();
   if (!three) return;
   const old = three.world.getObjectByName("secim"); if (old) { three.world.remove(old); old.geometry.dispose(); }
   const it = getSel(); if (!it) return;
@@ -1301,7 +1319,8 @@ function build3d() {
         const b = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr * 0.85, kh, 24, 1, true), clear); b.position.set(x, H + kh / 2, 0); grp.add(b);
         const f = new THREE.Mesh(new THREE.CylinderGeometry(rr * 0.92, rr * 0.85, kh * 0.35, 20), red); f.position.set(x, H + kh * 0.175, 0); grp.add(f);
       }
-      const lb = label(it.name); lb.position.set(0, H + (it.kova ? 1.25 : 0.3), 0); grp.add(lb);
+      // dolap numarası yalnız fare üzerindeyken ya da dolap seçiliyken görünür
+      const lb = label(it.name); lb.position.set(0, H + (it.kova ? 1.25 : 0.3), 0); lb.userData.etiket = it.id; lb.visible = it.id === hoverId || it.id === sel; grp.add(lb);
     } else if (it.type === "koli") {
       const n = it.stack || 1;
       for (let k = 0; k < n; k++) grp.add(box(L * 0.98, H * 0.97, D * 0.98, mat(k % 2 ? 0xc49763 : 0xb98b57), 0, H * k + H / 2, 0));
