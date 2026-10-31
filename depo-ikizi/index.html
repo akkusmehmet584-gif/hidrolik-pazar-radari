@@ -286,8 +286,8 @@ function openScenario(id) {
   // dolabın parçası olarak çizilen kovaları tek tek taşınabilen kova nesnelerine çevir
   cur.items.filter((i) => i.type === "dolap" && i.kova > 0).forEach((d) => { const n = d.kova; d.kova = 0; for (let k = 0; k < n; k++) addKovaOn(d, k, n); fixed = true; });
   // raflar boşsa örnek o-ring / pul / bilya içeriğiyle doldur (örnek olduğu işaretli)
-  const dols = cur.items.filter((i) => i.type === "dolap");
-  if (dols.length && dols.every((d) => !Object.keys(d.cells || {}).length)) { ornekDoldur(); fixed = true; }
+  // eski sürümlerden kalan yazı-bölmeler (miktarsız) varken de çalışır; yalnız boş bölmeleri doldurur, bir kez
+  if (!cur.ornekDolduruldu && !tumBolmeler().some((b) => b.c.miktar != null)) { ornekDoldur(); fixed = true; }
   cur.hareketler = cur.hareketler || [];
   lsSetCur(id); renderAll(true);
   if (fixed) scheduleSave();
@@ -525,16 +525,20 @@ function ornekDoldur() {
     return { kod: `BL-${fmt(mm)}`, ad: `Çelik bilya ${fmt(mm)} mm`, tur: "bilya", kap: rnd() < 0.8 ? "kutu" : "paket", birimG: +((4 / 3) * Math.PI * (mm / 20) ** 3 * 7.85).toFixed(2), min: pick([200, 500]), hiz: Math.round(5 + rnd() * 60) };
   };
   cur.items.filter((i) => i.type === "dolap").forEach((d) => {
-    const tur = plan[codeBase(d.name)] || "oring70"; d.cells = {};
+    const tur = plan[codeBase(d.name)] || "oring70"; d.cells = d.cells || {};
     for (let r = 0; r < d.rows; r++) for (let c = 0; c < d.cols; c++) {
       if (rnd() < 0.12) continue;  // bazı bölmeler boş
       const v = uret(tur), x = rnd();
+      const a = cellAddr(d, c, r), eski = cellOf(d, a);
+      if (eski && (eski.miktar != null || eski.kod)) continue;  // kullanıcının girdiği bölmeye dokunma
+      if (eski && eski.ad) v.ad = eski.ad;  // eski sürümde yazılan açıklama kalsın
       // dağılım: çoğu yeterli, bir kısmı azalan / kritik, birkaçı bitmiş
       v.miktar = x < 0.04 ? 0 : x < 0.16 ? Math.round(v.min * (0.3 + rnd() * 0.6)) : x < 0.3 ? Math.round(v.min * (1.05 + rnd() * 0.4)) : Math.round(v.min * (1.6 + rnd() * 4));
       v.ornek = true;
-      d.cells[cellAddr(d, c, r)] = v;
+      d.cells[a] = v;
     }
   });
+  cur.ornekDolduruldu = true;
 }
 // test: son 30 günün kullanımını örnek tüketim hızlarıyla geriye dönük üret (gelen mallar dahil)
 function simule30() {
@@ -978,7 +982,7 @@ function renderStok(p, tabs) {
       <p class="hint" style="margin:6px 0 0">En az miktarın altına düşenler ve ${TEDARIK_GUN} günden kısa sürede bitecekler (g = kaç gün yeter).</p></div>
     <div><h2 style="margin:4px 0 6px">Son hareketler</h2><div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${new Date(h.t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span> <span class="addr">${h.a}</span> ${h.tip === "say" ? `sayım ${h.n >= 0 ? "+" : "−"}` : tip[h.tip]}${Math.abs(h.n)} → ${h.sonra}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Henüz hareket yok."}</div></div>
     <div><h2 style="margin:4px 0 6px">Test araçları</h2>
-      <div class="acts"><button class="btn" id="sSim">30 günlük kullanım üret</button><button class="btn${canliTimer ? " on" : ""}" id="sCanli">${canliTimer ? "■ Canlı akışı durdur" : "▶ Canlı akış"}</button><button class="btn" id="sQR">QR etiketleri</button></div>
+      <div class="acts"><button class="btn" id="sSim">30 günlük kullanım üret</button><button class="btn${canliTimer ? " on" : ""}" id="sCanli">${canliTimer ? "■ Canlı akışı durdur" : "▶ Canlı akış"}</button><button class="btn" id="sQR">QR etiketleri</button><button class="btn" id="sDoldur" title="Yalnız boş bölmelere örnek o-ring/pul/bilya koyar; girdiğiniz bölmelere dokunmaz">Boş bölmeleri örnekle doldur</button></div>
       <p class="hint" style="margin:6px 0 0">Canlı akış, depodan her 2 saniyede bir malzeme alınıyormuş gibi kayıt düşer; 3D'de o bölme yanıp söner. ${ornek ? "Raflardaki içerik <b>örnektir</b>, gerçek stok değildir." : ""} Kayıtlar bu tarayıcıda tutulur.</p></div>
   </div>`;
   const sonuc = () => {
@@ -993,6 +997,7 @@ function renderStok(p, tabs) {
   $("sSim").addEventListener("click", () => { pushUndo(); simule30(); afterEdit(true); });
   $("sCanli").addEventListener("click", () => { if (canliTimer) { clearInterval(canliTimer); canliTimer = 0; } else { canliTimer = setInterval(canliAdim, 2000); canliAdim(); } renderProps(); });
   $("sQR").addEventListener("click", qrEtiketleri);
+  $("sDoldur").addEventListener("click", () => { pushUndo(); ornekDoldur(); afterEdit(true); });
 }
 let stokAra = "";
 // her bölme için QR'lı raf etiketi: telefonla okutunca ikiz o bölmeyle açılır
