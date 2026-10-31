@@ -85,6 +85,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
 .legend3d { max-width: calc(100% - 20px); }
 .legend3d.top { top: 54px; bottom: auto; left: 10px; right: auto; }
 .cross { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid #fff; border-radius: 50%; mix-blend-mode: difference; pointer-events: none; z-index: 2; }
+.fovtag { position: absolute; left: 50%; top: calc(50% + 22px); transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-size: 12px; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none; }
 .pad { position: absolute; left: 10px; bottom: 10px; display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; z-index: 2; }
 .pad .btn { justify-content: center; height: 44px; font-size: 18px; padding: 0; touch-action: none; user-select: none; }
 .pad .btn.on { background: var(--accent); color: var(--accent-ink); }
@@ -158,6 +159,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
       <div id="view3d" hidden></div>
       <div class="legend3d" id="legend3d" hidden>Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır</div>
       <div class="cross" id="cross" hidden></div>
+      <div class="fovtag" id="fovTag" hidden></div>
       <div class="pad" id="pad" hidden>
         <span></span><button class="btn" data-k="ArrowUp" aria-label="İleri yürü">↑</button><span></span>
         <button class="btn" data-k="ArrowLeft" aria-label="Sola dön">↶</button><button class="btn" data-k="ArrowDown" aria-label="Geri yürü">↓</button><button class="btn" data-k="ArrowRight" aria-label="Sağa dön">↷</button>
@@ -618,7 +620,11 @@ window.addEventListener("blur", () => held.clear());
 const WALK = { ArrowUp: "ileri", ArrowDown: "geri", ArrowLeft: "sol", ArrowRight: "sag", w: "ileri", s: "geri", a: "sol", d: "sag" };
 const held = new Set();
 const player = { x: 200, y: 700, yaw: 0, pitch: -0.12 };
-let look = null, lastT = 0, orbitSaved = null;
+let look = null, lastT = 0, orbitSaved = null, fpFov = 70, fovTimer = 0;
+function showFov() {
+  const el = $("fovTag"); el.textContent = `Görüş açısı ${Math.round(fpFov)}°`; el.hidden = false;
+  clearTimeout(fovTimer); fovTimer = setTimeout(() => (el.hidden = true), 1200);
+}
 const EYE = 160, BODY = 20;  // göz yüksekliği ve gövde yarıçapı (cm)
 function blocked(x, y) {
   if (x < BODY || y < BODY || x > cur.room.w - BODY || y > cur.room.h - BODY) return true;
@@ -828,6 +834,14 @@ function init3d() {
     try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
     renderProps(); markSel3d();
   }, true);
+  // içeride gezerken tekerlek: görüş açısını daralt (yakınlaştır) / genişlet
+  renderer.domElement.addEventListener("wheel", (e) => {
+    if (view !== "fp") return;
+    e.preventDefault();
+    camera.fov = Math.max(25, Math.min(100, camera.fov + Math.sign(e.deltaY) * 5));
+    camera.updateProjectionMatrix();
+    fpFov = camera.fov; showFov();
+  }, { passive: false });
   renderer.domElement.addEventListener("pointermove", (e) => {
     if (look) {
       // fareyi sağa çekince sağa, yukarı çekince yukarı bakılır
@@ -959,7 +973,7 @@ function setView(v) {
   $("cross").hidden = $("pad").hidden = v !== "fp";
   $("legend3d").classList.toggle("top", v === "fp");
   $("legend3d").textContent = v === "fp"
-    ? "↑ ↓ yürü · ← → dön · boş yeri sürükle: etrafa bak · nesneyi sürükle: taşı · Shift + ok: seçiliyi baktığın yöne it"
+    ? "↑ ↓ yürü · ← → dön · boş yeri sürükle: etrafa bak · tekerlek: görüş açısı · nesneyi sürükle: taşı · Shift + ok: seçiliyi baktığın yöne it"
     : "Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır";
   if (three) cancelAnimationFrame(three.raf);
   if (v === "2d") return;
@@ -967,7 +981,7 @@ function setView(v) {
   const c = three.camera;
   if (v === "fp") {
     if (was !== "fp") { orbitSaved = { pos: c.position.clone(), target: three.controls.target.clone() }; placePlayer(); }
-    three.controls.enabled = false; c.fov = 70; c.updateProjectionMatrix();
+    three.controls.enabled = false; c.fov = fpFov; c.updateProjectionMatrix();
     document.activeElement?.blur?.();  // oklar sayfayı kaydırmasın, yürüsün
   } else {
     c.fov = 45; c.updateProjectionMatrix(); c.rotation.order = "XYZ";
