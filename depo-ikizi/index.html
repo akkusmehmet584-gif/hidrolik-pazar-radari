@@ -58,6 +58,11 @@ h1 span { color: var(--accent); }
 .btn.danger { color: var(--bad); }
 .btn.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .btn:disabled { opacity: .45; cursor: default; }
+.mesafe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mesafe label { display: grid; gap: 3px; font-size: 12px; color: var(--fg); }
+.mesafe .muted { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mesafe label.dar input { border-color: var(--bad); color: var(--bad); }
+.btn.olc.on { background: var(--tape); border-color: var(--tape); color: #1b1b1b; font-weight: 600; }
 .btn.kilit.lock { background: var(--warn); border-color: var(--warn); color: #1b1b1b; font-weight: 600; }
 .models { display: flex; flex-wrap: wrap; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
 .mchip { background: none; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
@@ -182,6 +187,8 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
         <button class="btn on" id="b2d">2D plan</button>
         <button class="btn" id="b3d">3D görünüm</button>
         <button class="btn" id="bfp">İçeride gez</button>
+        <button class="btn olc" id="bOlc" aria-pressed="false" title="Planda iki nokta arasını sürükleyerek ölçün; nesne kenarlarına yapışır">📏 Ölç</button>
+        <button class="btn" id="bOlcSil" hidden>Ölçüleri sil</button>
         <button class="btn kilit" id="bKilit" aria-pressed="false" title="Kilitliyken nesneler seçilir ama taşınmaz, döndürülmez">🔓 Taşımayı kilitle</button>
       </div>
       <svg id="plan" aria-label="Depo kat planı"></svg>
@@ -558,11 +565,14 @@ function problems() {
   return bad;
 }
 function gapsOf(it) {
-  const r = rect(it), R = cur.room, others = cur.items.filter((o) => o.id !== it.id && isSolid(o) && zHit(o, it)).map(rect);
-  const g = { sol: r.x1, sag: R.w - r.x2, ust: r.y1, alt: R.h - r.y2 };
-  others.forEach((o) => {
-    if (o.y1 < r.y2 && o.y2 > r.y1) { if (o.x2 <= r.x1) g.sol = Math.min(g.sol, r.x1 - o.x2); if (o.x1 >= r.x2) g.sag = Math.min(g.sag, o.x1 - r.x2); }
-    if (o.x1 < r.x2 && o.x2 > r.x1) { if (o.y2 <= r.y1) g.ust = Math.min(g.ust, r.y1 - o.y2); if (o.y1 >= r.y2) g.alt = Math.min(g.alt, o.y1 - r.y2); }
+  const r = rect(it), R = cur.room, others = cur.items.filter((o) => o.id !== it.id && isSolid(o) && zHit(o, it));
+  const g = { sol: r.x1, sag: R.w - r.x2, ust: r.y1, alt: R.h - r.y2, ad: { sol: "duvar", sag: "duvar", ust: "duvar", alt: "duvar" } };
+  // her yönde en yakın komşu (adıyla); komşu yoksa duvar
+  const yaz = (k, v, o) => { if (v < g[k]) { g[k] = v; g.ad[k] = o.name || TYPES[o.type].label; } };
+  others.forEach((it2) => {
+    const o = rect(it2);
+    if (o.y1 < r.y2 && o.y2 > r.y1) { if (o.x2 <= r.x1) yaz("sol", r.x1 - o.x2, it2); if (o.x1 >= r.x2) yaz("sag", o.x1 - r.x2, it2); }
+    if (o.x1 < r.x2 && o.x2 > r.x1) { if (o.y2 <= r.y1) yaz("ust", r.y1 - o.y2, it2); if (o.y1 >= r.y2) yaz("alt", o.y1 - r.y2, it2); }
   });
   return g;
 }
@@ -767,13 +777,50 @@ function renderPlan() {
     };
     s += `<g pointer-events="none">${dim(r.x1, cy, r.x1 - g.sol, cy, g.sol)}${dim(r.x2, cy, r.x2 + g.sag, cy, g.sag)}${dim(cx, r.y1, cx, r.y1 - g.ust, g.ust)}${dim(cx, r.y2, cx, r.y2 + g.alt, g.alt)}</g>`;
   }
+  // ölçü çizgileri (cetvel)
+  const olcCizgi = (m, i) => {
+    const dx = m.b.x - m.a.x, dy = m.b.y - m.a.y, L = Math.hypot(dx, dy); if (L < 1) return "";
+    const nx = (-dy / L) * 7, ny = (dx / L) * 7, mx = (m.a.x + m.b.x) / 2, my = (m.a.y + m.b.y) / 2;
+    const yazi = `${Math.round(L)} cm` + (Math.abs(dx) > 2 && Math.abs(dy) > 2 ? ` (↔${Math.round(Math.abs(dx))} ↕${Math.round(Math.abs(dy))})` : "");
+    const gw = yazi.length * 7 + 12;
+    return `<g${i != null ? ` data-olc="${i}" style="cursor:pointer"` : ""}>
+      <line x1="${m.a.x}" y1="${m.a.y}" x2="${m.b.x}" y2="${m.b.y}" stroke="var(--tape)" stroke-width="2.5"/>
+      <line x1="${m.a.x - nx}" y1="${m.a.y - ny}" x2="${m.a.x + nx}" y2="${m.a.y + ny}" stroke="var(--tape)" stroke-width="2.5"/>
+      <line x1="${m.b.x - nx}" y1="${m.b.y - ny}" x2="${m.b.x + nx}" y2="${m.b.y + ny}" stroke="var(--tape)" stroke-width="2.5"/>
+      <rect x="${mx - gw / 2}" y="${my - 11}" width="${gw}" height="22" rx="4" fill="var(--tape)"/>
+      <text x="${mx}" y="${my + 1}" font-size="13" text-anchor="middle" dominant-baseline="central" fill="#1b1b1b" font-family="var(--font-code)" font-weight="600">${yazi}</text></g>`;
+  };
+  s += olculer.map((m, i) => olcCizgi(m, i)).join("") + (olcCiz ? olcCizgi(olcCiz, null) : "");
   svg.innerHTML = s;
 }
+
+/* ölçü aracı: sürükleyerek iki nokta arası; nesne kenarlarına ve duvarlara yapışır, Shift ile yatay/dikey */
+let olcMod = false, olcCiz = null, olculer = [];
+function olcYapis(p) {
+  const xs = [0, cur.room.w], ys = [0, cur.room.h];
+  cur.items.forEach((it) => { const r = rect(it); xs.push(r.x1, r.x2); ys.push(r.y1, r.y2); });
+  const yak = (v, arr) => { let best = null, bd = 9; arr.forEach((a) => { const d = Math.abs(a - v); if (d < bd) { bd = d; best = a; } }); return best ?? Math.round(v / 5) * 5; };
+  return { x: yak(p.x, xs), y: yak(p.y, ys) };
+}
+function olcGuncelle() {
+  $("bOlc").classList.toggle("on", olcMod); $("bOlc").setAttribute("aria-pressed", olcMod);
+  $("bOlcSil").hidden = !olculer.length; svg.style.cursor = olcMod ? "crosshair" : "";
+}
+$("bOlc").addEventListener("click", () => { olcMod = !olcMod; if (olcMod && view !== "2d") setView("2d"); olcGuncelle(); renderPlan(); });
+$("bOlcSil").addEventListener("click", () => { olculer = []; olcGuncelle(); renderPlan(); });
 
 /* sürükleme */
 function svgPt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
 svg.addEventListener("pointerdown", (e) => {
   if (!cur) return;
+  if (olcMod) {
+    e.preventDefault();
+    const sil = e.target.closest("[data-olc]");  // ölçünün üstüne tıklamak onu siler
+    if (sil) { olculer.splice(+sil.dataset.olc, 1); olcGuncelle(); renderPlan(); return; }
+    const p = olcYapis(svgPt(e)); olcCiz = { a: p, b: p };
+    try { svg.setPointerCapture(e.pointerId); } catch {}
+    renderPlan(); return;
+  }
   const g = e.target.closest("[data-id]");
   if (!g) { if (sel) { sel = null; selCell = null; renderAll(false); } return; }
   const it = cur.items.find((i) => i.id === g.dataset.id); if (!it) return;
@@ -787,6 +834,11 @@ svg.addEventListener("pointerdown", (e) => {
 });
 // pencere düzeyinde dinle: imleç plandan taşsa da sürükleme kopmasın
 window.addEventListener("pointermove", (e) => {
+  if (olcCiz) {
+    let b = olcYapis(svgPt(e));
+    if (e.shiftKey) { if (Math.abs(b.x - olcCiz.a.x) > Math.abs(b.y - olcCiz.a.y)) b.y = olcCiz.a.y; else b.x = olcCiz.a.x; }
+    olcCiz.b = b; renderPlan(); return;
+  }
   if (!dragging || dragging.mode === "3d") return;
   const it = cur.items.find((i) => i.id === dragging.id); if (!it) return;
   const p = svgPt(e), f = fp(it);
@@ -797,6 +849,7 @@ window.addEventListener("pointermove", (e) => {
 const endDrag = () => {
   if (three) three.controls.enabled = view === "3d";
   look = null;
+  if (olcCiz) { if (Math.hypot(olcCiz.b.x - olcCiz.a.x, olcCiz.b.y - olcCiz.a.y) >= 5) olculer.push(olcCiz); olcCiz = null; olcGuncelle(); renderPlan(); return; }
   if (!dragging) return;
   if (dragging.moved) {
     const it = cur.items.find((i) => i.id === dragging.id); if (it) settle(it, dragging.riders);
@@ -869,7 +922,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowRight") { e.preventDefault(); nudge(st, 0); }
   else if (e.key === "ArrowUp") { e.preventDefault(); nudge(0, -st); }
   else if (e.key === "ArrowDown") { e.preventDefault(); nudge(0, st); }
-  else if (e.key === "Escape") { sel = null; renderAll(false); }
+  else if (e.key === "Escape") { sel = null; olcMod = false; olcGuncelle(); renderAll(false); }
 });
 
 document.addEventListener("keyup", (e) => { const k = WALK[e.key] || WALK[e.key.toLowerCase()]; if (k) held.delete(k); });
@@ -978,7 +1031,9 @@ function renderProps() {
   h += `<label>Not<input id="pNote" value="${esc(it.note || "")}" placeholder="ör. Anamas yay, M030 serisi"></label>`;
   if (it.z > 0) { const on = cur.items.filter((o) => o !== it && isSolid(o) && centerIn(it, o) && Math.abs(topOf(o) - it.z) < 1).map((o) => o.name); h += `<div class="gaps">Üstünde durduğu: <b>${esc(on.join(", ") || "—")}</b> · zeminden ${Math.round(it.z)} cm</div>`; }
   { const rd = isSolid(it) ? ridersOf(it) : []; if (rd.length) h += `<div class="gaps">Üstünde: ${rd.length} nesne (birlikte taşınır)</div>`; }
-  if (g) h += `<div class="gaps">Boşluk: ${gl("sol", g.sol)} · ${gl("sağ", g.sag)} · ${gl("üst", g.ust)} · ${gl("alt", g.alt)}</div>`;
+  // komşulara mesafe: yazınca nesne o mesafeye kayar (üstündekiler de birlikte)
+  if (g) h += `<div><h2 style="margin:4px 0 6px">Komşulara mesafe (cm)</h2><div class="mesafe">${[["sol", "← Sol"], ["sag", "Sağ →"], ["ust", "↑ Üst"], ["alt", "↓ Alt"]].map(([k, t]) => `<label class="${g[k] < 60 ? "dar" : ""}">${t} · <span class="muted">${esc(g.ad[k])}</span><input type="number" min="0" step="5" data-gap="${k}" value="${Math.round(g[k])}"${kilit ? " disabled" : ""}></label>`).join("")}</div>
+    <p class="hint" style="margin:4px 0 0">Sayıyı değiştirip Enter'a basın; nesne o mesafeye gelir. 60 cm'nin altı kırmızı.</p></div>`;
   if (t === "bant") { const k = kolisIn(it); h += `<div class="gaps">İçinde ${k.length} yığın, ${k.reduce((a, b) => a + (b.stack || 1), 0)} koli · alan ${((it.w * it.d) / 10000).toFixed(2)} m²</div>`; }
   if (kilit) h += `<div class="gaps">🔒 Taşıma kilitli: yer ve yön değiştirilemez. Açmak için plan üstündeki kilit düğmesine basın.</div>`;
   else h += `<div><h2 style="margin:4px 0 6px">Taşı</h2><div class="mover">
@@ -1023,6 +1078,15 @@ function renderProps() {
     pushUndo(); const f = fp(it), cx = it.x + f.w / 2, cy = it.y + f.d / 2;
     it.rot = Number(e.target.value); const n = fp(it); it.x = snap(cx - n.w / 2, 5); it.y = snap(cy - n.d / 2, 5); afterEdit(true);
   });
+  p.querySelectorAll("[data-gap]").forEach((inp) => inp.addEventListener("change", () => {
+    if (kilitUyar()) return;
+    const k = inp.dataset.gap, v = Math.max(0, Math.round(Number(inp.value) || 0)), g2 = gapsOf(it), fark = v - g2[k];
+    if (!fark) return;
+    pushUndo(); const rd = ridersOf(it);
+    // sol boşluğu artırmak sağa, sağ boşluğu artırmak sola kaydırır (üst/alt aynı mantık)
+    const d = { sol: [fark, 0], sag: [-fark, 0], ust: [0, fark], alt: [0, -fark] }[k];
+    moveBy(it, d[0], d[1], rd); settle(it, rd); afterEdit(true);
+  }));
   if ($("mvStep")) { $("mvStep").value = String(mvStep); $("mvStep").addEventListener("change", (e) => (mvStep = Number(e.target.value))); }
   p.querySelectorAll("[data-mv]").forEach((b) => b.addEventListener("click", () => { const [dx, dy] = b.dataset.mv.split(",").map(Number); nudge(dx * mvStep, dy * mvStep); }));
   $("aRot").addEventListener("click", rotateSel);
