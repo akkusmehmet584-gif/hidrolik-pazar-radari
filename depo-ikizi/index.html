@@ -94,10 +94,11 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
 .stage svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; }
 #view3d { position: absolute; inset: 0; }
 #view3d canvas { display: block; }
-.stage-bar { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; z-index: 2; }
+.stage-bar { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; pointer-events: none; }
+.stage-bar .btn { white-space: nowrap; pointer-events: auto; }
 .legend3d { position: absolute; right: 10px; bottom: 10px; font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; z-index: 2; }
 .legend3d { max-width: calc(100% - 20px); }
-.legend3d.top { top: 54px; bottom: auto; left: 10px; right: auto; }
+.legend3d.top { max-width: calc(100% - 175px); }  /* içeride gezerken: sağ altta, soldaki ok düğmelerine çarpmadan */
 .cross { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid #fff; border-radius: 50%; mix-blend-mode: difference; pointer-events: none; z-index: 2; }
 .fovtag { position: absolute; left: 50%; top: calc(50% + 22px); transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-size: 12px; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none; }
 .pad { position: absolute; left: 10px; bottom: 10px; display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; z-index: 2; }
@@ -804,10 +805,64 @@ function olcYapis(p) {
 }
 function olcGuncelle() {
   $("bOlc").classList.toggle("on", olcMod); $("bOlc").setAttribute("aria-pressed", olcMod);
-  $("bOlcSil").hidden = !olculer.length; svg.style.cursor = olcMod ? "crosshair" : "";
+  $("bOlcSil").hidden = !olculer.length && !olc3.length; svg.style.cursor = olcMod ? "crosshair" : "";
+  if (three) three.renderer.domElement.style.cursor = olcMod ? "crosshair" : "";
+  lejantYaz();
+  if (!olcMod) { olc3Bas = null; olc3Onizle = null; }
+  olc3Ciz();
 }
-$("bOlc").addEventListener("click", () => { olcMod = !olcMod; if (olcMod && view !== "2d") setView("2d"); olcGuncelle(); renderPlan(); });
-$("bOlcSil").addEventListener("click", () => { olculer = []; olcGuncelle(); renderPlan(); });
+$("bOlc").addEventListener("click", () => { olcMod = !olcMod; olcGuncelle(); renderPlan(); });
+$("bOlcSil").addEventListener("click", () => { olculer = []; olc3 = []; olc3Bas = null; olc3Onizle = null; olcGuncelle(); renderPlan(); });
+
+/* 3D ölçü: iki noktaya tıkla (dolap köşesi, kova, zemin, duvar); arada sürükleyip görünümü çevirebilirsin */
+let olc3 = [], olc3Bas = null, olc3Onizle = null, olcDown = null;
+function olc3Nokta(e) {
+  if (!three) return null;
+  const b = three.renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1), three.camera);
+  const h = ray.intersectObjects(three.world.children, true).find((x) => x.object.isMesh && x.object.visible && !x.object.userData.olc);
+  if (!h) return null;
+  // 1 cm'e yuvarla; zemine çok yakınsa tam zemine otur
+  const p = h.point.clone(); p.x = Math.round(p.x * 100) / 100; p.z = Math.round(p.z * 100) / 100; p.y = p.y < 0.015 ? 0 : Math.round(p.y * 100) / 100;
+  return p;
+}
+function olc3Etiket(text) {
+  const c = document.createElement("canvas"), ctx = c.getContext("2d"); c.width = 512; c.height = 96;
+  ctx.font = "700 44px 'JetBrains Mono', Consolas, monospace"; const w = Math.min(500, ctx.measureText(text).width + 36);
+  ctx.fillStyle = "#f2c400"; ctx.beginPath(); ctx.roundRect ? ctx.roundRect((512 - w) / 2, 10, w, 76, 12) : ctx.rect((512 - w) / 2, 10, w, 76); ctx.fill();
+  ctx.fillStyle = "#1b1b1b"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, 256, 50);
+  // uzaklıktan bağımsız sabit ekran boyu: uzaktan bakınca da okunur
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, sizeAttenuation: false }));
+  sp.scale.set(0.27, 0.05, 1); sp.renderOrder = 20; sp.userData.olc = true; return sp;
+}
+function olc3Ciz() {
+  if (!three) return;
+  const eski = three.world.getObjectByName("olcler"); if (eski) { three.world.remove(eski); eski.traverse((n) => { n.geometry?.dispose(); n.material?.map?.dispose(); n.material?.dispose?.(); }); }
+  if (view === "2d") return;
+  const g = new THREE.Group(); g.name = "olcler"; g.userData.olc = true;
+  const lm = new THREE.LineBasicMaterial({ color: 0xf2c400, depthTest: false }), nm = new THREE.MeshBasicMaterial({ color: 0xf2c400, depthTest: false });
+  const nokta = (p) => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 8), nm); s.position.copy(p); s.renderOrder = 19; s.userData.olc = true; g.add(s); };
+  const cizgi = (a, b, kesik) => {
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), kesik ? new THREE.LineDashedMaterial({ color: 0xf2c400, dashSize: 0.05, gapSize: 0.04, depthTest: false }) : lm);
+    if (kesik) l.computeLineDistances(); l.renderOrder = 19; l.userData.olc = true; g.add(l);
+    nokta(a); nokta(b);
+    const L = a.distanceTo(b) * 100, yatay = Math.hypot(b.x - a.x, b.z - a.z) * 100, dikey = Math.abs(b.y - a.y) * 100;
+    const yazi = `${Math.round(L)} cm` + (yatay > 2 && dikey > 2 ? `  ↔${Math.round(yatay)} ↕${Math.round(dikey)}` : "");
+    const et = olc3Etiket(yazi); et.position.copy(a).add(b).multiplyScalar(0.5); et.position.y += 0.12; g.add(et);
+    if (!kesik) $("stage").dataset.olcSon = yazi;
+  };
+  olc3.forEach((m) => cizgi(new THREE.Vector3(m.a.x, m.a.y, m.a.z), new THREE.Vector3(m.b.x, m.b.y, m.b.z)));
+  if (olc3Bas) { nokta(new THREE.Vector3(olc3Bas.x, olc3Bas.y, olc3Bas.z)); if (olc3Onizle) cizgi(new THREE.Vector3(olc3Bas.x, olc3Bas.y, olc3Bas.z), olc3Onizle, true); }
+  three.world.add(g);
+}
+function lejantYaz() {
+  if (!$("legend3d")) return;
+  $("legend3d").textContent = olcMod && view !== "2d"
+    ? (olc3Bas ? "Ölç: ikinci noktaya tıklayın · Esc: vazgeç" : "Ölç: ilk noktaya tıklayın · sürükleyerek görünümü çevirebilirsiniz · Ölç'e tekrar basınca kapanır")
+    : view === "fp"
+      ? "↑ ↓ yürü · ← → dön · boş yeri sürükle: etrafa bak · tekerlek: görüş açısı · nesneyi sürükle: taşı · Shift + ok: seçiliyi baktığın yöne it"
+      : "Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır";
+}
 
 /* sürükleme */
 function svgPt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
@@ -900,6 +955,8 @@ document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y" && !typing) { e.preventDefault(); redo(); return; }
+  // Esc: önce yarım kalan ölçüyü bırakır, sonra ölçü modunu kapatır
+  if (e.key === "Escape" && !typing && olcMod) { if (olc3Bas) { olc3Bas = null; olc3Onizle = null; } else olcMod = false; olcGuncelle(); renderPlan(); return; }
   // içeride gezerken: oklar/WASD yürür ve döner; Shift + ok seçili nesneyi baktığın yöne göre iter
   const walkKey = WALK[e.key] || WALK[e.key.toLowerCase()];
   if (view === "fp" && !typing && walkKey) {
@@ -922,7 +979,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowRight") { e.preventDefault(); nudge(st, 0); }
   else if (e.key === "ArrowUp") { e.preventDefault(); nudge(0, -st); }
   else if (e.key === "ArrowDown") { e.preventDefault(); nudge(0, st); }
-  else if (e.key === "Escape") { sel = null; olcMod = false; olcGuncelle(); renderAll(false); }
+  else if (e.key === "Escape") { if (olc3Bas) { olc3Bas = null; olc3Onizle = null; olcGuncelle(); return; } sel = null; olcMod = false; olcGuncelle(); renderAll(false); }
 });
 
 document.addEventListener("keyup", (e) => { const k = WALK[e.key] || WALK[e.key.toLowerCase()]; if (k) held.delete(k); });
@@ -1252,8 +1309,28 @@ function init3d() {
     ray.setFromCamera(new THREE.Vector2(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1), camera);
     return ray;
   };
+  // ölçü modunda: tıklama ölçü noktası koyar, sürükleme görünümü çevirir (nesne taşınmaz)
+  renderer.domElement.addEventListener("pointerup", (e) => {
+    if (!olcMod || !olcDown) return;
+    const kipirti = Math.hypot(e.clientX - olcDown.x, e.clientY - olcDown.y); olcDown = null;
+    if (kipirti > 5) return;
+    const p = olc3Nokta(e); if (!p) return;
+    if (!olc3Bas) olc3Bas = { x: p.x, y: p.y, z: p.z };
+    else { olc3.push({ a: olc3Bas, b: { x: p.x, y: p.y, z: p.z } }); olc3Bas = null; olc3Onizle = null; }
+    olcGuncelle();
+  });
+  let onizT = 0;
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (!olcMod || !olc3Bas || look || e.timeStamp - onizT < 50) return;
+    onizT = e.timeStamp; olc3Onizle = olc3Nokta(e); olc3Ciz();
+  });
   renderer.domElement.addEventListener("pointerdown", (e) => {
     if (!cur || e.button > 0) return;
+    if (olcMod) {
+      olcDown = { x: e.clientX, y: e.clientY };
+      if (view === "fp") { look = { x: e.clientX, y: e.clientY, yaw: player.yaw, pitch: player.pitch }; try { renderer.domElement.setPointerCapture(e.pointerId); } catch {} }
+      return;
+    }
     const hits = floorAt(e).intersectObjects(world.children, true);
     let id = null, cellHit = null;
     for (const h of hits) { if (h.object.isSprite && !h.object.visible) continue; let o = h.object; cellHit = o.userData.cell || null; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
@@ -1452,7 +1529,7 @@ function build3d() {
     const c = new THREE.Vector3(R.w * S / 2, 0.6, R.h * S / 2);
     three.controls.target.copy(c); three.camera.position.set(c.x - R.w * S * 0.45, Math.max(R.w, R.h) * S * 1.1, c.z + R.h * S * 1.55);
   }
-  markSel3d();
+  markSel3d(); olc3Ciz();
   three.sun.target.position.set(R.w * S / 2, 0, R.h * S / 2); three.scene.add(three.sun.target);
   three.scene.background = new THREE.Color(css("--bg"));
 }
@@ -1470,9 +1547,7 @@ function setView(v) {
   svg.style.display = v === "2d" ? "" : "none"; $("view3d").hidden = v === "2d"; $("legend3d").hidden = v === "2d";
   $("cross").hidden = $("pad").hidden = v !== "fp";
   $("legend3d").classList.toggle("top", v === "fp");
-  $("legend3d").textContent = v === "fp"
-    ? "↑ ↓ yürü · ← → dön · boş yeri sürükle: etrafa bak · tekerlek: görüş açısı · nesneyi sürükle: taşı · Shift + ok: seçiliyi baktığın yöne it"
-    : "Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır";
+  lejantYaz();
   if (three) cancelAnimationFrame(three.raf);
   if (v === "2d") return;
   build3d(); size3d();
