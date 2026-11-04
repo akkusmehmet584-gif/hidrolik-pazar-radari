@@ -204,7 +204,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
       </div>
       <svg id="plan" aria-label="Depo kat planı"></svg>
       <div id="view3d" hidden></div>
-      <div class="legend3d" id="legend3d" hidden>Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır</div>
+      <div class="legend3d" id="legend3d" hidden>Nesneyi sürükle: taşı · boş yeri sürükle veya WASD: döndür · tekerlek: imlece yakınlaştır</div>
       <div class="cross" id="cross" hidden></div>
       <div class="fovtag" id="fovTag" hidden></div>
       <div class="pad" id="pad" hidden>
@@ -957,7 +957,7 @@ function lejantYaz() {
     ? (olc3Bas ? "Ölç: ikinci noktaya tıklayın · Esc: vazgeç" : "Ölç: ilk noktaya tıklayın · sürükleyerek görünümü çevirebilirsiniz · Ölç'e tekrar basınca kapanır")
     : view === "fp"
       ? "↑ ↓ yürü · ← → dön · boş yeri sürükle: etrafa bak · tekerlek: görüş açısı · nesneyi sürükle: taşı · Shift + ok: seçiliyi baktığın yöne it"
-      : "Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır";
+      : "Nesneyi sürükle: taşı · boş yeri sürükle veya WASD: döndür · tekerlek: imlece yakınlaştır";
 }
 
 /* sürükleme */
@@ -1090,6 +1090,8 @@ document.addEventListener("keydown", (e) => {
     } else held.add(walkKey);
     return;
   }
+  // 3D görünümde: A/D etrafında döndürür, W/S yukarıdan / yandan bakışa eğer (oklar seçili nesneyi iter)
+  if (view === "3d" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && /^[wasd]$/i.test(e.key)) { e.preventDefault(); held.add(WALK[e.key.toLowerCase()]); return; }
   if (typing || !sel) return;
   const st = e.shiftKey ? 1 : GRID;
   if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); delSel(); }
@@ -1819,7 +1821,20 @@ function build3d() {
 function loop3d(t) {
   if (!three || view === "2d") return;
   const dt = Math.min(0.05, lastT ? ((t || 0) - lastT) / 1000 : 0); lastT = t || 0;
-  if (view === "fp") stepPlayer(dt); else three.controls.update();
+  if (view === "fp") stepPlayer(dt);
+  else {
+    if (held.size) {  // WASD: kamerayı hedef noktanın etrafında çevir / eğ
+      const c = three.camera, tg = three.controls.target, ofs = c.position.clone().sub(tg);
+      const sph = new THREE.Spherical().setFromVector3(ofs), hiz = 1.4 * dt;
+      if (held.has("sol")) sph.theta -= hiz;
+      if (held.has("sag")) sph.theta += hiz;
+      if (held.has("ileri")) sph.phi -= hiz * 0.7;
+      if (held.has("geri")) sph.phi += hiz * 0.7;
+      sph.phi = Math.max(0.05, Math.min(three.controls.maxPolarAngle, sph.phi));
+      c.position.copy(tg).add(ofs.setFromSpherical(sph)); c.lookAt(tg);
+    }
+    three.controls.update();
+  }
   three.renderer.render(three.scene, three.camera); three.raf = requestAnimationFrame(loop3d);
 }
 function setView(v) {
