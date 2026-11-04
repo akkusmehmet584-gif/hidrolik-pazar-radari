@@ -121,7 +121,13 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
 .cells { display: grid; gap: 3px; }
 .cell { font-family: var(--font-code); font-size: 10px; border: 1px solid var(--line); background: var(--bg); border-radius: 3px; padding: 6px 2px; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .cell.full { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); border-color: var(--accent); }
-.cell.sel { outline: 2px solid var(--tape); outline-offset: 0; }
+.cell.sel { outline: 2px solid #d62828; outline-offset: 0; background: #d62828 !important; border-color: #d62828 !important; color: #fff; font-weight: 700; }
+.props .stack > *, .props .stack { min-width: 0; }  /* geniş bölme tablosu paneli taşırıp sayfayı kaydırmasın */
+.props { overflow-x: hidden; }
+.ctxmenu { position: fixed; z-index: 50; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: 4px; min-width: 200px; font-size: 13px; }
+.ctxmenu .bas { padding: 6px 10px 4px; font-size: 11px; color: var(--muted); font-family: var(--font-code); }
+.ctxmenu button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 5px; padding: 8px 10px; color: var(--fg); font: inherit; cursor: pointer; }
+.ctxmenu button:hover, .ctxmenu button:focus-visible { background: color-mix(in srgb, var(--accent) 15%, var(--panel)); outline: none; }
 .addr { font-family: var(--font-code); font-size: 13px; color: var(--accent); }
 .tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
 .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 10px; font-weight: 600; color: var(--muted); }
@@ -1253,6 +1259,9 @@ function renderProps() {
   h += `</div>`;
   p.innerHTML = h;
   if (isD && selCell) bindCellForm(it, selCell);
+  // seçili bölme yatay kaydırmalı tabloda görünür olsun
+  { const sc = p.querySelector(".cell.sel"), kap = sc?.closest('[style*="overflow-x"]');
+    if (sc && kap) kap.scrollLeft = sc.offsetLeft - kap.offsetLeft - kap.clientWidth / 2 + sc.offsetWidth / 2; }
   bindTabs();
 
   const bind = (id, fn) => { const el = $(id); if (!el) return; el.addEventListener("focus", () => pushUndo(), { once: true }); el.addEventListener("input", () => { fn(el.value); scheduleSave(); renderPlan(); renderStats(); if (view !== "2d") build3d(); }); };
@@ -1564,8 +1573,12 @@ function init3d() {
     let id = null, cellHit = null;
     for (const h of hits) { if (h.object.isSprite && !h.object.visible) continue; let o = h.object; cellHit = o.userData.cell || null; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
     const it = id && cur.items.find((i) => i.id === id);
-    // raftaki kutu/pakete tıklanınca o bölmenin stok formu açılır
-    if (it && cellHit) { sel = it.id; selCell = cellHit; panel = "nesne"; renderProps(); build3d(); setTimeout(() => $("cellBox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); return; }
+    // raftaki ürüne sol tık yalnız rafı seçer (sürükleme görünümü çevirir); stok koduna gitmek sağ tık menüsünden
+    if (it && cellHit) {
+      if (sel !== it.id) { sel = it.id; selCell = null; renderProps(); markSel3d(); }
+      if (view === "fp") { look = { x: e.clientX, y: e.clientY, yaw: player.yaw, pitch: player.pitch }; try { renderer.domElement.setPointerCapture(e.pointerId); } catch {} }
+      return;
+    }
     // içeride gezerken boş yeri sürüklemek etrafa bakmaktır
     // taşıma kilitliyse nesneye basmak yalnız seçer; sürükleme görünümü döndürür / etrafa baktırır
     if (it && kilit) { sel = it.id; selCell = null; renderProps(); markSel3d(); }
@@ -1585,7 +1598,25 @@ function init3d() {
   controls.screenSpacePanning = false;
   controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
   controls.addEventListener("start", () => { ucus = null; });
-  renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
+  // sağ tık (sürüklemeden bırakınca): ürünün üstündeyse "Stok koduna git" menüsü; sürüklemek kaydırır
+  let sagBas = null;
+  renderer.domElement.addEventListener("pointerdown", (e) => { if (e.button === 2) sagBas = { x: e.clientX, y: e.clientY }; menuKapat(); });
+  renderer.domElement.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    if (!cur || !sagBas || Math.hypot(e.clientX - sagBas.x, e.clientY - sagBas.y) > 5) return;
+    let id = null, cell = null;
+    for (const h of floorAt(e).intersectObjects(world.children, true)) {
+      if (h.object.isSprite && !h.object.visible) continue;
+      let o = h.object; cell = o.userData.cell || null; while (o && !o.userData.id) o = o.parent;
+      if (o) { id = o.userData.id; break; }
+    }
+    const it = id && cur.items.find((i) => i.id === id);
+    if (!it || !cell) return;
+    const v = cellOf(it, cell);
+    menuAc(e.clientX, e.clientY, `${addrGoster(cell)}${v ? " · " + (v.kod || v.ad || "") : " · boş"}`, [
+      ["Stok koduna git", () => { sel = it.id; selCell = cell; panel = "nesne"; renderAll(true); setTimeout(() => $("cellBox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }],
+    ]);
+  });
   // çift tık: tıklanan yere süzülerek yaklaş
   renderer.domElement.addEventListener("dblclick", (e) => {
     if (view !== "3d" || olcMod) return;
@@ -1800,7 +1831,7 @@ function build3d() {
           if (!HM) parts.push(box(cw * 0.8, 0.014, 0.008, M.durum[du], x, y0 + 0.007, D / 2 + 0.006));
         }
         // seçili bölme (camgöbeği) ya da az önce hareket gören bölme (sarı) çerçevelenir
-        const vurgu = flash && flash.a === a && Date.now() < flash.until ? 0xf2c400 : selCell === a && sel === it.id ? 0x2bd4ff : null;
+        const vurgu = flash && flash.a === a && Date.now() < flash.until ? 0xf2c400 : selCell === a && sel === it.id ? 0xe02020 : null;
         if (vurgu) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cw * 0.96, ch * 0.92, D * 1.02)), new THREE.LineBasicMaterial({ color: vurgu })); e.position.set(x, y0 + ch * 0.46, 0); grp.add(e); }
         // içeriğe tıklanınca o bölme açılsın (taşımak için dolabın çerçevesinden tutulur)
         parts.forEach((m) => { m.userData.cell = a; m.castShadow = false; grp.add(m); });
@@ -1893,6 +1924,21 @@ function kameraSifirla() {
   const c1 = new THREE.Vector3(tg1.x - R.w * S * 0.45, Math.max(R.w, R.h) * S * 1.1, tg1.z + R.h * S * 1.55);
   ucus = { t0: performance.now(), tg0: tg.clone(), c0: c.position.clone(), tg1, c1 };
 }
+// küçük sağ tık menüsü
+function menuKapat() { document.querySelector(".ctxmenu")?.remove(); }
+function menuAc(x, y, baslik, secenekler) {
+  menuKapat();
+  const m = document.createElement("div"); m.className = "ctxmenu"; m.setAttribute("role", "menu");
+  m.innerHTML = `<div class="bas">${esc(baslik)}</div>` + secenekler.map(([t], i) => `<button role="menuitem" data-i="${i}">${esc(t)}</button>`).join("");
+  document.body.appendChild(m);
+  const b = m.getBoundingClientRect();
+  m.style.left = Math.min(x, innerWidth - b.width - 8) + "px"; m.style.top = Math.min(y, innerHeight - b.height - 8) + "px";
+  m.addEventListener("click", (e) => { const k = e.target.closest("[data-i]"); if (!k) return; menuKapat(); secenekler[+k.dataset.i][1](); });
+  m.querySelector("button")?.focus();
+}
+document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".ctxmenu") && e.button !== 2) menuKapat(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") menuKapat(); });
+window.addEventListener("wheel", () => menuKapat(), { passive: true });
 function loop3d(t) {
   if (!three || view === "2d") return;
   const dt = Math.min(0.05, lastT ? ((t || 0) - lastT) / 1000 : 0); lastT = t || 0;
