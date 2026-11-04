@@ -224,7 +224,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-<script>window.DEPO_MOD = "hammadde"; window.DEPO_SABLON = {"name":"Mevcut durum (hammadde rafı)","surum":1,"room":{"w":1110,"h":393},"items":[{"id":"rA","type":"dolap","name":"A","x":0,"y":0,"w":1110,"d":193,"h":180,"rot":0,"cols":22,"rows":3,"kova":0,"cells":{},"note":"11,1 m × 1,93 m; 22 bölme × 3 kat; bölme 40 cm, mavi plaka 10 cm. Yükseklik ölçülmedi (180 cm varsayıldı)"},{"id":"zK","type":"bant","name":"Koridor","x":0,"y":193,"w":1110,"d":200,"h":0,"rot":0,"note":"Rafın önü: vinç ve forklift alanı (ölçü verilmedi)"}]};</script>
+<script>window.DEPO_MOD = "hammadde"; window.DEPO_SABLON = {"name":"Mevcut durum (hammadde rafı)","surum":2,"room":{"w":1110,"h":393},"items":[{"id":"rA","type":"dolap","name":"A","x":0,"y":0,"w":1110,"d":193,"h":180,"rot":0,"cols":22,"rows":3,"kova":0,"cells":{},"note":"11,1 m × 1,93 m; 22 bölme × 3 kat; bölme 40 cm, mavi plaka 10 cm. Yükseklik ölçülmedi (180 cm varsayıldı)"},{"id":"zK","type":"bant","name":"Koridor","x":0,"y":265,"w":1110,"d":128,"h":0,"rot":0,"note":"Rafın önü: vinç ve forklift alanı (ölçü verilmedi). Raf ile bant arasındaki 72 cm çubukların taştığı yer"}]};</script>
 <script>
 (() => {
 const TYPES = {
@@ -1113,7 +1113,8 @@ function yuruBolmeye(d, a) {
   const ax = rot({ x: 1, y: 0 }), front = rot({ x: 0, y: 1 }), f = fp(d);
   const col = addrParse(a).c, off = -d.w / 2 + (col + 0.5) * (d.w / d.cols);
   const cx = d.x + f.w / 2 + ax.x * off, cy = d.y + f.d / 2 + ax.y * off;
-  let dist = d.d / 2 + 70;
+  // hammaddede çubuklar raftan ~70 cm taşar; onların önünde dur
+  let dist = d.d / 2 + (HM ? 170 : 70);
   for (; dist > d.d / 2 + 25; dist -= 5) { player.x = cx + front.x * dist; player.y = cy + front.y * dist; if (!blocked(player.x, player.y)) break; }
   player.yaw = Math.atan2(front.x, front.y);  // ileri yönü dolaba bakar
   const row = addrParse(a).r, cellY = (d.z || 0) + d.h - (row + 0.5) * ((d.h - 6) / d.rows);
@@ -1675,6 +1676,12 @@ function build3d() {
           for (let j = 0; j < rows; j++) grp.add(box(0.05, 0.05, D, celik, x, H - ((H - base) * (j + 1)) / rows + 0.025, 0));
         }
         grp.add(box(L, 0.05, 0.05, celik, 0, 0.025, D / 2 - 0.025), box(L, 0.05, 0.05, celik, 0, 0.025, -D / 2 + 0.025));
+        // çubukların düzgün durduğu taşıyıcı demir plakalar: her katta raf boyunca (sahadaki kırmızı-kahve lamalar)
+        const plaka = mat(0x6b3a2c, { metalness: 0.35, roughness: 0.7 });
+        for (let j = 0; j < rows; j++) {
+          const yt = H - ((H - base) * (j + 1)) / rows + 0.05;  // kol üst yüzü
+          for (const z of [D / 2 - 0.09, 0, -D / 2 + 0.09]) grp.add(box(L, 0.04, 0.012, plaka, 0, yt - 0.02, z));
+        }
       } else {
         grp.add(box(L, H, t, blue, 0, H / 2, -D / 2 + t / 2));
         grp.add(box(t, H, D, blue, -L / 2 + t / 2, H / 2, 0)); grp.add(box(t, H, D, blue, L / 2 - t / 2, H / 2, 0));
@@ -1691,7 +1698,7 @@ function build3d() {
         if (v) {
           const du = durumOf(v), dolu = du === "bitti" ? 0 : Math.max(0.12, Math.min(1, (Number(v.miktar) || 0) / ((v.min || 100) * 4)));
           const tm = M.tur[v.tur] || M.tur.diger;
-          if (HM) cubukDemeti(v, x, y0 + 0.03, cw, ch, D).forEach((m) => parts.push(m));
+          if (HM) cubukDemeti(v, x, y0 + 0.04, cw, ch, D).forEach((m) => parts.push(m));
           else if (v.kap === "kutu") {
             const bw = cw * 0.72, bh = Math.min(0.15, ch * 0.4), bd = D * 0.72;
             parts.push(box(bw, bh, bd, M.kutu, x, y0 + bh / 2, 0));
@@ -1706,7 +1713,7 @@ function build3d() {
               const film = box(pw, ph, pd, M.film, px, py, 0); film.rotation.y = icx.rotation.y; parts.push(film);
             }
           }
-          parts.push(box(HM ? cw * 0.5 : cw * 0.8, HM ? 0.03 : 0.014, 0.008, M.durum[du], x, y0 + (HM ? 0.05 : 0.007), D / 2 + 0.006));
+          if (!HM) parts.push(box(cw * 0.8, 0.014, 0.008, M.durum[du], x, y0 + 0.007, D / 2 + 0.006));
         }
         // seçili bölme (camgöbeği) ya da az önce hareket gören bölme (sarı) çerçevelenir
         const vurgu = flash && flash.a === a && Date.now() < flash.until ? 0xf2c400 : selCell === a && sel === it.id ? 0x2bd4ff : null;
