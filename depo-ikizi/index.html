@@ -124,6 +124,9 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
 .cell.sel { outline: 2px solid #d62828; outline-offset: 0; background: #d62828 !important; border-color: #d62828 !important; color: #fff; font-weight: 700; }
 .props .stack > *, .props .stack { min-width: 0; }  /* geniş bölme tablosu paneli taşırıp sayfayı kaydırmasın */
 .props { overflow-x: hidden; }
+.cell.kaynak { outline: 2px dashed #ff8c00; outline-offset: 1px; }
+.cell.ustunde { outline: 3px solid #1f9d55; outline-offset: 1px; }
+.tasibant { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); z-index: 4; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; background: #fff4e0; color: #5a3a00; border: 2px solid #ff8c00; border-radius: 8px; padding: 6px 10px; font-size: 13px; max-width: calc(100% - 20px); box-shadow: 0 4px 14px rgba(0,0,0,.12); }
 .ctxmenu { position: fixed; z-index: 50; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.18); padding: 4px; min-width: 200px; font-size: 13px; }
 .ctxmenu .bas { padding: 6px 10px 4px; font-size: 11px; color: var(--muted); font-family: var(--font-code); }
 .ctxmenu button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 5px; padding: 8px 10px; color: var(--fg); font: inherit; cursor: pointer; }
@@ -211,6 +214,7 @@ kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--li
       <svg id="plan" aria-label="Depo kat planı"></svg>
       <div id="view3d" hidden></div>
       <div class="legend3d" id="legend3d" hidden>Nesneyi sürükle: taşı · boş yeri sürükle veya WASD: döndür · tekerlek: imlece yakınlaştır</div>
+      <div class="tasibant" id="tasiBant" hidden></div>
       <div class="cross" id="cross" hidden></div>
       <div class="fovtag" id="fovTag" hidden></div>
       <div class="pad" id="pad" hidden>
@@ -255,7 +259,7 @@ const fmtN = (v) => (v == null || v === "" ? "—" : HM ? Number(v).toLocaleStri
 let db = null, mode = "loading";          // "db" | "local"
 let scenarios = {};                       // id -> doc body
 let curId = null, cur = null;             // cur: düzenlenen kopya
-let sel = null, selCell = null, panel = "nesne";
+let sel = null, selCell = null, panel = "nesne", tasima = null;
 let undoStack = [], redoStack = [];
 let dirty = false, saving = false, saveTimer = null, saveErr = false, lastWrite = "";
 let dragging = null;
@@ -320,7 +324,7 @@ function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(c
 function afterEdit(full) { if (sel && !cur.items.find((i) => i.id === sel)) sel = null; updUndo(); scheduleSave(); renderAll(full); }
 
 function openScenario(id) {
-  curId = id; cur = clone(scenarios[id]); sel = null; selCell = null; undoStack = []; redoStack = []; updUndo();
+  curId = id; cur = clone(scenarios[id]); sel = null; selCell = null; tasima = null; undoStack = []; redoStack = []; updUndo();
   // eski sürümün eklediği küçük dolapları (160×40×210) depodaki dolap ölçüsüne getir
   const ref = cur.items.find((i) => i.type === "dolap" && !(i.w === 160 && i.d === 40 && i.h === 210));
   let fixed = false;
@@ -1250,7 +1254,7 @@ function renderProps() {
     h += `<div><h2 style="margin:6px 0 6px">Bölmeler · ön görünüş</h2><div style="overflow-x:auto"><div class="cells" style="grid-template-columns:repeat(${it.cols},${HM ? "54px" : "1fr"})">`;
     for (let r = 0; r < it.rows; r++) for (let c = 0; c < it.cols; c++) {
       const a = cellAddr(it, c, r), v = cellOf(it, a), du = durumOf(v);
-      h += `<button class="cell${v ? " full" : ""}${selCell === a ? " sel" : ""}" data-cell="${a}" style="${v ? `border-left:4px solid ${DURUM[du].renk}` : ""}" title="${esc(a + (v ? `: ${v.kod || ""} ${v.ad || ""} · ${fmtN(v.miktar)} ${BIRIM}` : " · boş"))}">${esc(v ? (v.kod || v.ad || a.split("-")[1]) : a.split("-")[1])}</button>`;
+      h += `<button class="cell${v ? " full" : ""}${selCell === a ? " sel" : ""}${tasima && tasima.id === it.id && tasima.a === a ? " kaynak" : ""}" data-cell="${a}"${v ? ' draggable="true"' : ""} style="${v ? `border-left:4px solid ${DURUM[du].renk}` : ""}" title="${esc(a + (v ? `: ${v.kod || ""} ${v.ad || ""} · ${fmtN(v.miktar)} ${BIRIM}` : " · boş"))}">${esc(v ? (v.kod || v.ad || a.split("-")[1]) : a.split("-")[1])}</button>`;
     }
     h += `</div></div></div>`;
     if (selCell) h += cellForm(it, selCell);
@@ -1297,7 +1301,16 @@ function renderProps() {
   $("aRot").addEventListener("click", rotateSel);
   $("aDup").addEventListener("click", dupSel);
   $("aDel").addEventListener("click", delSel);
-  p.querySelectorAll("[data-cell]").forEach((b) => b.addEventListener("click", () => { selCell = b.dataset.cell; renderProps(); if (view !== "2d") build3d(); }));
+  p.querySelectorAll("[data-cell]").forEach((b) => {
+    // taşıma modundaysa tıklanan bölme hedeftir
+    b.addEventListener("click", () => { if (tasima) { tasimaBitir(it, b.dataset.cell); return; } selCell = b.dataset.cell; renderProps(); if (view !== "2d") build3d(); });
+    // tablo içinde sürükle-bırak ile de taşınır
+    b.addEventListener("dragstart", (e) => { tasima = { id: it.id, a: b.dataset.cell }; e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", b.dataset.cell); } catch {} b.classList.add("kaynak"); });
+    b.addEventListener("dragend", () => { if (tasima && tasima.a === b.dataset.cell) { tasima = null; tasimaBantGuncelle(); renderProps(); } });
+    b.addEventListener("dragover", (e) => { if (tasima) { e.preventDefault(); b.classList.add("ustunde"); } });
+    b.addEventListener("dragleave", () => b.classList.remove("ustunde"));
+    b.addEventListener("drop", (e) => { e.preventDefault(); if (tasima) tasimaBitir(it, b.dataset.cell); });
+  });
 }
 
 /* bölme formu: içerik + al / koy / say + tartıyla sayım + son hareketler */
@@ -1336,8 +1349,8 @@ function cellFormHM(d, a) {
       <button class="btn" id="hKes"${kgm ? "" : " disabled"}>Kesilen boydan çıkış</button>
       <span class="gaps" id="hKesOn"></span>
     </div>
-    <div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${ts(h.t)}</span> ${{ al: "Çıkış", koy: "Giriş", say: "Sayım" }[h.tip]} <b>${h.tip === "al" ? "−" : h.tip === "koy" ? "+" : h.n >= 0 ? "+" : "−"}${fmtN(Math.abs(h.n))} kg</b> → ${fmtN(h.sonra)}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Bu bölmede henüz hareket yok."}</div>
-    <div class="acts"><button class="btn danger" id="cBos">Bölmeyi boşalt</button></div>
+    <div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${ts(h.t)}</span> ${{ al: "Çıkış", koy: "Giriş", say: "Sayım", tasi: "Taşıma" }[h.tip]} <b>${h.tip === "tasi" ? "" : h.tip === "al" ? "−" : h.tip === "koy" ? "+" : h.n >= 0 ? "+" : "−"}${fmtN(Math.abs(h.n))} kg</b> → ${fmtN(h.sonra)}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Bu bölmede henüz hareket yok."}</div>
+    <div class="acts"><button class="btn" id="cTasi" title="İçeriği başka bölmeye taşı">⇄ Başka bölmeye taşı</button><button class="btn danger" id="cBos">Bölmeyi boşalt</button></div>
   </div>`;
 }
 function bindCellFormHM(d, a) {
@@ -1354,13 +1367,14 @@ function bindCellFormHM(d, a) {
   $("hBoyKes").addEventListener("input", on); $("hParca").addEventListener("input", on);
   $("hKes").addEventListener("click", () => { const k = kesKg(); if (!k.m) return; pushUndo(); get(); hareket(d, a, "al", k.kg, `kesim: ${fmtN(k.m)} m × ${k.p}`); afterEdit(true); });
   $("cBos").addEventListener("click", () => { pushUndo(); delete d.cells[a]; afterEdit(true); });
+  $("cTasi")?.addEventListener("click", () => tasimaBasla(d, a));
 }
 
 function cellForm(d, a) {
   if (HM) return cellFormHM(d, a);
   const c = cellOf(d, a) || {}, du = durumOf(c.ad || c.kod ? c : null), gy = gunYeter(c), ort = gunlukOrt(c);
   const son = (cur.hareketler || []).filter((h) => h.a === a).slice(0, 6);
-  const tip = { al: "Alındı", koy: "Kondu", say: "Sayım" };
+  const tip = { al: "Alındı", koy: "Kondu", say: "Sayım", tasi: "Taşıma" };
   const ts = (iso) => new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   return `<div class="cellbox" id="cellBox">
     <div class="cellhead"><span class="addr">${esc(a)}</span>${c.ornek ? `<span class="tag">örnek veri</span>` : ""}<span class="pill" style="background:${DURUM[du].renk}">${DURUM[du].ad}</span></div>
@@ -1385,8 +1399,8 @@ function cellForm(d, a) {
       <button class="btn" id="cTart"${c.birimG ? "" : " disabled title=\"Önce birim ağırlığı girin\""}>Tartıdan say</button>
       <span class="gaps" id="cTartOn"></span>
     </div>
-    <div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${ts(h.t)}</span> ${tip[h.tip]} <b>${h.tip === "al" ? "−" : h.tip === "koy" ? "+" : h.n >= 0 ? "+" : "−"}${Math.abs(h.n)}</b> → ${h.sonra}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Bu bölmede henüz hareket yok."}</div>
-    <div class="acts"><button class="btn danger" id="cBos">Bölmeyi boşalt</button></div>
+    <div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${ts(h.t)}</span> ${tip[h.tip]} <b>${h.tip === "tasi" ? "" : h.tip === "al" ? "−" : h.tip === "koy" ? "+" : h.n >= 0 ? "+" : "−"}${Math.abs(h.n)}</b> → ${h.sonra}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Bu bölmede henüz hareket yok."}</div>
+    <div class="acts"><button class="btn" id="cTasi" title="İçeriği başka bölmeye taşı">⇄ Başka bölmeye taşı</button><button class="btn danger" id="cBos">Bölmeyi boşalt</button></div>
   </div>`;
 }
 function bindCellForm(d, a) {
@@ -1401,6 +1415,7 @@ function bindCellForm(d, a) {
   $("cGr").addEventListener("input", () => { const c = cellOf(d, a) || {}, g = Number($("cGr").value); $("cTartOn").textContent = c.birimG && g ? `≈ ${Math.round(g / c.birimG)} adet` : ""; });
   $("cTart").addEventListener("click", () => { const c = cellOf(d, a) || {}, g = Number($("cGr").value); if (!c.birimG || !g) return; pushUndo(); hareket(d, a, "say", Math.round(g / c.birimG), `tartı: ${g} g`); afterEdit(true); });
   $("cBos").addEventListener("click", () => { pushUndo(); delete d.cells[a]; afterEdit(true); });
+  $("cTasi")?.addEventListener("click", () => tasimaBasla(d, a));
 }
 
 /* stok paneli: arama, sipariş listesi, son hareketler, test araçları */
@@ -1409,7 +1424,7 @@ function renderStok(p, tabs) {
   const siparis = all.filter((b) => ["kritik", "bitti"].includes(durumOf(b.c)) || (gunYeter(b.c) !== null && gunYeter(b.c) <= TEDARIK_GUN))
     .sort((x, y) => (gunYeter(x.c) ?? -1) - (gunYeter(y.c) ?? -1));
   const satir = (b) => { const du = durumOf(b.c), gy = gunYeter(b.c); return `<button class="srow" data-go="${b.a}"><span class="dot" style="background:${DURUM[du].renk}"></span><span class="addr">${addrGoster(b.a)}</span><span class="nm">${esc(b.c.kod || b.c.ad || "")}</span><span class="qty">${fmtN(b.c.miktar)}${HM ? " kg" : ""}${gy !== null ? ` · ${gy} g` : ""}</span></button>`; };
-  const tip = { al: "−", koy: "+" };
+  const tip = { al: "−", koy: "+", tasi: "taşıma " };
   const son = (cur.hareketler || []).slice(0, 8);
   const ornek = all.some((b) => b.c.ornek);
   p.innerHTML = `${tabs}<div class="stack">
@@ -1573,6 +1588,7 @@ function init3d() {
     let id = null, cellHit = null;
     for (const h of hits) { if (h.object.isSprite && !h.object.visible) continue; let o = h.object; cellHit = o.userData.cell || null; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
     const it = id && cur.items.find((i) => i.id === id);
+    if (tasima && it && cellHit) { tasimaBitir(it, cellHit); return; }
     // raftaki ürüne sol tık yalnız rafı seçer (sürükleme görünümü çevirir); stok koduna gitmek sağ tık menüsünden
     if (it && cellHit) {
       if (sel !== it.id) { sel = it.id; selCell = null; renderProps(); markSel3d(); }
@@ -1615,6 +1631,8 @@ function init3d() {
     const v = cellOf(it, cell);
     menuAc(e.clientX, e.clientY, `${addrGoster(cell)}${v ? " · " + (v.kod || v.ad || "") : " · boş"}`, [
       ["Stok koduna git", () => { sel = it.id; selCell = cell; panel = "nesne"; renderAll(true); setTimeout(() => $("cellBox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }],
+      ...(v ? [["⇄ Başka bölmeye taşı", () => tasimaBasla(it, cell)]] : []),
+      ...(tasima ? [["Buraya taşı", () => tasimaBitir(it, cell)]] : []),
     ]);
   });
   // çift tık: tıklanan yere süzülerek yaklaş
@@ -1758,6 +1776,8 @@ function build3d() {
   const M = {
     kutu: mat(0xffffff, { transparent: true, opacity: 0.22, roughness: 0.1 }), kapak: mat(0xdfe9f2, { transparent: true, opacity: 0.5, roughness: 0.2 }),
     klips: mat(0x8fd14f), film: mat(0xffffff, { transparent: true, opacity: 0.3, roughness: 0.3 }),
+    hedefBos: mat(0x22c55e, { transparent: true, opacity: 0.35, depthWrite: false, emissive: 0x22c55e, emissiveIntensity: 0.4 }),
+    hedefDolu: mat(0xffffff, { transparent: true, opacity: 0.0, depthWrite: false }),
     tur: Object.fromEntries(Object.entries(TUR).map(([k, v]) => [k, mat(v.renk, { roughness: k === "bilya" ? 0.25 : 0.7, metalness: k === "bilya" ? 0.8 : k === "pul" ? 0.5 : 0.05 })])),
     durum: Object.fromEntries(Object.entries(DURUM).map(([k, v]) => [k, mat(v.renk, { emissive: v.renk, emissiveIntensity: 0.35 })])),
   };
@@ -1831,7 +1851,10 @@ function build3d() {
           if (!HM) parts.push(box(cw * 0.8, 0.014, 0.008, M.durum[du], x, y0 + 0.007, D / 2 + 0.006));
         }
         // seçili bölme (camgöbeği) ya da az önce hareket gören bölme (sarı) çerçevelenir
-        const vurgu = flash && flash.a === a && Date.now() < flash.until ? 0xf2c400 : selCell === a && sel === it.id ? 0xe02020 : null;
+        const kaynak = tasima && tasima.id === it.id && tasima.a === a;
+        const vurgu = kaynak ? 0xff8c00 : flash && flash.a === a && Date.now() < flash.until ? 0xf2c400 : selCell === a && sel === it.id ? 0xe02020 : null;
+        // taşıma sırasında her bölme tıklanabilir hedef olur; boş olanlar yeşil görünür
+        if (tasima && !kaynak) { const hb = box(cw * 0.9, ch * 0.8, D * 0.9, v ? M.hedefDolu : M.hedefBos, x, y0 + ch * 0.42, 0); hb.castShadow = false; parts.push(hb); }
         if (vurgu) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cw * 0.96, ch * 0.92, D * 1.02)), new THREE.LineBasicMaterial({ color: vurgu })); e.position.set(x, y0 + ch * 0.46, 0); grp.add(e); }
         // içeriğe tıklanınca o bölme açılsın (taşımak için dolabın çerçevesinden tutulur)
         parts.forEach((m) => { m.userData.cell = a; m.castShadow = false; grp.add(m); });
@@ -1924,6 +1947,51 @@ function kameraSifirla() {
   const c1 = new THREE.Vector3(tg1.x - R.w * S * 0.45, Math.max(R.w, R.h) * S * 1.1, tg1.z + R.h * S * 1.55);
   ucus = { t0: performance.now(), tg0: tg.clone(), c0: c.position.clone(), tg1, c1 };
 }
+// ürünü (çelik çubuk / kutu) başka bölmeye taşıma: menüden ya da formdan başlar, hedef bölmeye tıklanınca biter
+// tasima: { id: dolap id, a: kaynak bölme } (yukarıda tanımlı)
+function tasimaBantGuncelle() {
+  const el = $("tasiBant"); if (!el) return;
+  const d = tasima && cur?.items.find((i) => i.id === tasima.id), c = d && cellOf(d, tasima.a);
+  if (!c) { el.hidden = true; return; }
+  el.innerHTML = `<span>⇄ <b>${esc(addrGoster(tasima.a))} · ${esc(c.kod || c.ad || "")}</b> taşınıyor. Hedef bölmeye tıklayın${view !== "2d" ? " (3D'de yeşil boş bölmeler)" : ""} ya da sağdaki tablodan seçin.</span><button class="btn" id="tasiVazgec">Vazgeç (Esc)</button>`;
+  el.hidden = false;
+  $("tasiVazgec").addEventListener("click", tasimaIptal);
+}
+function tasimaBasla(d, a) {
+  if (!cellOf(d, a)) return;
+  tasima = { id: d.id, a }; sel = d.id; selCell = a; panel = "nesne";
+  menuKapat(); tasimaBantGuncelle(); renderProps(); if (view !== "2d") build3d();
+}
+function tasimaIptal() { if (!tasima) return; tasima = null; tasimaBantGuncelle(); renderProps(); if (view !== "2d") build3d(); }
+function tasimaBitir(d2, b) {
+  const t = tasima; tasima = null; tasimaBantGuncelle();
+  const d1 = t && cur.items.find((i) => i.id === t.id), kay = d1 && cellOf(d1, t.a);
+  if (!kay || (d1 === d2 && t.a === b)) { renderProps(); if (view !== "2d") build3d(); return; }
+  const hed = cellOf(d2, b), ad = (c) => c.kod || c.ad || "ürün";
+  let is = "tasi";
+  if (hed) {
+    const ayni = hed.kod && kay.kod && hed.kod === kay.kod;
+    if (ayni) { if (!confirm(`${addrGoster(b)} bölmesinde de ${ad(hed)} var. Miktarlar birleştirilsin mi?`)) { renderProps(); if (view !== "2d") build3d(); return; } is = "birlestir"; }
+    else { if (!confirm(`${addrGoster(b)} bölmesi dolu (${ad(hed)}). İki bölmenin içeriği yer değiştirsin mi?`)) { renderProps(); if (view !== "2d") build3d(); return; } is = "degistir"; }
+  }
+  pushUndo();
+  d1.cells = d1.cells || {}; d2.cells = d2.cells || {};
+  const mk = Number(kay.miktar) || 0, zaman = new Date().toISOString();
+  if (is === "birlestir") { hed.miktar = SAYI((Number(hed.miktar) || 0) + mk); d2.cells[b] = hed; delete d1.cells[t.a]; }
+  else if (is === "degistir") { d2.cells[b] = kay; d1.cells[t.a] = hed; }
+  else { d2.cells[b] = kay; delete d1.cells[t.a]; }
+  delete kay.ornek;
+  const yaz = (a, c, once, sonra, not) => cur.hareketler.unshift({ t: zaman, a, kod: c.kod || "", mal: c.malzeme || c.tur || "", tip: "tasi", n: mk, once, sonra, not });
+  cur.hareketler = cur.hareketler || [];
+  const yol = `${addrGoster(t.a)} → ${addrGoster(b)}`;
+  yaz(t.a, kay, mk, is === "degistir" ? Number(hed.miktar) || 0 : 0, `${yol}${is === "degistir" ? " (yer değiştirdi)" : ""}`);
+  yaz(b, kay, hed ? Number(hed.miktar) - (is === "birlestir" ? mk : 0) : 0, is === "birlestir" ? hed.miktar : mk, `${yol}${is === "birlestir" ? " (birleştirildi)" : ""}`);
+  if (cur.hareketler.length > 300) cur.hareketler.length = 300;
+  sel = d2.id; selCell = b; panel = "nesne"; flash = { a: b, until: Date.now() + 1500 };
+  afterEdit(true);
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && tasima) { tasimaIptal(); e.stopImmediatePropagation(); } }, true);
+
 // küçük sağ tık menüsü
 function menuKapat() { document.querySelector(".ctxmenu")?.remove(); }
 function menuAc(x, y, baslik, secenekler) {
