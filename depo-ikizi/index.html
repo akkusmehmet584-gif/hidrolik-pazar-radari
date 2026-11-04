@@ -956,8 +956,8 @@ function lejantYaz() {
   $("legend3d").textContent = olcMod && view !== "2d"
     ? (olc3Bas ? "Ölç: ikinci noktaya tıklayın · Esc: vazgeç" : "Ölç: ilk noktaya tıklayın · sürükleyerek görünümü çevirebilirsiniz · Ölç'e tekrar basınca kapanır")
     : view === "fp"
-      ? "↑ ↓ yürü · ← → dön · boş yeri sürükle: etrafa bak · tekerlek: görüş açısı · nesneyi sürükle: taşı · Shift + ok: seçiliyi baktığın yöne it"
-      : "Nesneyi sürükle: taşı · boş yeri sürükle veya WASD: döndür · tekerlek: imlece yakınlaştır";
+      ? "W/S yürü · A/D yana kay · Q/E veya ← → dön · Shift: koş · boş yeri sürükle: etrafa bak · tekerlek: görüş açısı · nesneyi sürükle: taşı"
+      : "WASD: gez · Q/E: dön · R/F: eğ · Shift: hızlı · sol sürükle: döndür · sağ sürükle: kaydır · tekerlek: imlece yaklaş · çift tık: oraya git · Home: başa dön";
 }
 
 /* sürükleme */
@@ -1084,14 +1084,18 @@ document.addEventListener("keydown", (e) => {
     if (e.shiftKey && sel) {
       if (e.repeat) return;
       const f = { x: -Math.sin(player.yaw), y: -Math.cos(player.yaw) }, r = { x: -f.y, y: f.x };
-      const v = { ileri: f, geri: { x: -f.x, y: -f.y }, sag: r, sol: { x: -r.x, y: -r.y } }[walkKey];
+      const v = { ileri: f, geri: { x: -f.x, y: -f.y }, sag: r, sol: { x: -r.x, y: -r.y }, sagKay: r, solKay: { x: -r.x, y: -r.y } }[walkKey];
       const ax = Math.abs(v.x) > Math.abs(v.y) ? [Math.sign(v.x) * mvStep, 0] : [0, Math.sign(v.y) * mvStep];
       nudge(ax[0], ax[1]);
     } else held.add(walkKey);
     return;
   }
-  // 3D görünümde: A/D etrafında döndürür, W/S yukarıdan / yandan bakışa eğer (oklar seçili nesneyi iter)
-  if (view === "3d" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && /^[wasd]$/i.test(e.key)) { e.preventDefault(); held.add(WALK[e.key.toLowerCase()]); return; }
+  // 3D görünüm: WASD gezer, Q/E döner, R/F eğer, Shift hızlandırır, Home başa döner (bir nesne seçiliyken oklar onu iter)
+  if (view === "3d" && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.key === "Home") { e.preventDefault(); kameraSifirla(); return; }
+    const k3 = KEY3[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    if (k3 && !(sel && e.key.startsWith("Arrow"))) { e.preventDefault(); held3.add(k3); ucus = null; return; }
+  }
   if (typing || !sel) return;
   const st = e.shiftKey ? 1 : GRID;
   if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); delSel(); }
@@ -1104,12 +1108,21 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Escape") { if (olc3Bas) { olc3Bas = null; olc3Onizle = null; olcGuncelle(); return; } sel = null; olcMod = false; olcGuncelle(); renderAll(false); }
 });
 
-document.addEventListener("keyup", (e) => { const k = WALK[e.key] || WALK[e.key.toLowerCase()]; if (k) held.delete(k); });
-window.addEventListener("blur", () => held.clear());
+document.addEventListener("keyup", (e) => {
+  const k = WALK[e.key] || WALK[e.key.toLowerCase()]; if (k) held.delete(k);
+  const k3 = KEY3[e.key.length === 1 ? e.key.toLowerCase() : e.key]; if (k3) held3.delete(k3);
+});
+["keydown", "keyup"].forEach((t) => document.addEventListener(t, (e) => { shiftBasili = e.shiftKey; }));
+window.addEventListener("blur", () => { held.clear(); held3.clear(); shiftBasili = false; });
 
 /* ---------- içeride gezme (göz hizası) ---------- */
-const WALK = { ArrowUp: "ileri", ArrowDown: "geri", ArrowLeft: "sol", ArrowRight: "sag", w: "ileri", s: "geri", a: "sol", d: "sag" };
+// W/S ileri-geri, A/D yana kay, Q/E ve ←/→ dön
+const WALK = { ArrowUp: "ileri", ArrowDown: "geri", ArrowLeft: "sol", ArrowRight: "sag", w: "ileri", s: "geri", a: "solKay", d: "sagKay", q: "sol", e: "sag" };
 const held = new Set();
+// 3D (kuş bakışı) klavye: oyun gibi gez
+const KEY3 = { w: "ileri", s: "geri", a: "solKay", d: "sagKay", ArrowUp: "ileri", ArrowDown: "geri", ArrowLeft: "solKay", ArrowRight: "sagKay", q: "solDon", e: "sagDon", r: "yukari", f: "asagi" };
+const held3 = new Set();
+let shiftBasili = false, ucus = null;
 const player = { x: 200, y: 700, yaw: 0, pitch: -0.12 };
 let look = null, lastT = 0, orbitSaved = null, fpFov = 70, fovTimer = 0;
 function showFov() {
@@ -1150,12 +1163,15 @@ function yuruBolmeye(d, a) {
   player.pitch = Math.max(-0.9, Math.min(0.8, Math.atan2(cellY - EYE, dist - d.d / 2 + 20)));  // dar koridorda da bölme kadrajda kalsın
 }
 function stepPlayer(dt) {
-  const turn = 1.6 * dt, speed = 140 * dt;  // rad/sn, cm/sn
+  const turn = 1.6 * dt, speed = (shiftBasili && !sel ? 300 : 140) * dt;  // rad/sn, cm/sn (Shift: koş)
   if (held.has("sol")) player.yaw += turn;
   if (held.has("sag")) player.yaw -= turn;
-  let mv = 0; if (held.has("ileri")) mv += speed; if (held.has("geri")) mv -= speed;
-  if (mv) {
-    const nx = player.x - Math.sin(player.yaw) * mv, ny = player.y - Math.cos(player.yaw) * mv;
+  let mv = 0, yan = 0;
+  if (held.has("ileri")) mv += speed; if (held.has("geri")) mv -= speed;
+  if (held.has("sagKay")) yan += speed; if (held.has("solKay")) yan -= speed;
+  if (mv && yan) { mv *= 0.7071; yan *= 0.7071; }
+  if (mv || yan) {
+    const nx = player.x - Math.sin(player.yaw) * mv + Math.cos(player.yaw) * yan, ny = player.y - Math.cos(player.yaw) * mv - Math.sin(player.yaw) * yan;
     const stuck = blocked(player.x, player.y);  // içinde başladıysa çıkabilsin
     if (stuck || !blocked(nx, ny)) { player.x = nx; player.y = ny; }
     else { if (!blocked(nx, player.y)) player.x = nx; else if (!blocked(player.x, ny)) player.y = ny; }  // duvar boyunca kay
@@ -1565,6 +1581,22 @@ function init3d() {
   }, true);
   // tekerlek: imlecin gösterdiği noktaya doğru yakınlaştır / uzaklaştır
   controls.enableZoom = false;
+  // sol sürükle: döndür · sağ veya orta sürükle: zemin üzerinde kaydır
+  controls.screenSpacePanning = false;
+  controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+  controls.addEventListener("start", () => { ucus = null; });
+  renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
+  // çift tık: tıklanan yere süzülerek yaklaş
+  renderer.domElement.addEventListener("dblclick", (e) => {
+    if (view !== "3d" || olcMod) return;
+    floorAt(e);
+    let P = null;
+    for (const h of ray.intersectObjects(world.children, true)) { if (h.object.isSprite) continue; P = h.point.clone(); break; }
+    if (!P) { floorPlane.constant = 0; if (ray.ray.intersectPlane(floorPlane, hitPt)) P = hitPt.clone(); }
+    if (!P) return;
+    const ofs = camera.position.clone().sub(controls.target), dist = ofs.length(), yeni = Math.min(dist, 5);
+    ucus = { t0: performance.now(), tg0: controls.target.clone(), c0: camera.position.clone(), tg1: P, c1: P.clone().add(ofs.multiplyScalar(yeni / dist)) };
+  });
   renderer.domElement.addEventListener("wheel", (e) => {
     if (view !== "fp" && view !== "3d") return;
     e.preventDefault();
@@ -1818,29 +1850,60 @@ function build3d() {
   three.sun.target.position.set(R.w * S / 2, 0, R.h * S / 2); three.scene.add(three.sun.target);
   three.scene.background = new THREE.Color(css("--bg"));
 }
+// 3D klavye ile gezinme + çift tıklanan yere süzülerek gitme
+function step3d(dt) {
+  const c = three.camera, tg = three.controls.target;
+  if (ucus) {
+    const t = Math.min(1, (performance.now() - ucus.t0) / 650), k = 1 - Math.pow(1 - t, 3);
+    tg.lerpVectors(ucus.tg0, ucus.tg1, k); c.position.lerpVectors(ucus.c0, ucus.c1, k);
+    if (t >= 1) ucus = null;
+  }
+  if (!held3.size || !cur) return;
+  const ofs = c.position.clone().sub(tg), dist = ofs.length();
+  const hiz = shiftBasili ? 3 : 1;
+  // ileri: bakılan yön, zemine yatırılmış
+  const ileri = new THREE.Vector3(-ofs.x, 0, -ofs.z); if (ileri.lengthSq() < 1e-6) ileri.set(0, 0, -1); ileri.normalize();
+  const sag = new THREE.Vector3(-ileri.z, 0, ileri.x);
+  const adim = Math.max(1, dist * 0.5) * dt * hiz;
+  const d = new THREE.Vector3();
+  if (held3.has("ileri")) d.add(ileri); if (held3.has("geri")) d.sub(ileri);
+  if (held3.has("sagKay")) d.add(sag); if (held3.has("solKay")) d.sub(sag);
+  if (d.lengthSq()) {
+    d.normalize().multiplyScalar(adim);
+    // hedef nokta odanın biraz dışına kadar gidebilsin, kaybolmasın
+    const S = 0.01, pay = 2, nt = tg.clone().add(d);
+    nt.x = Math.max(-pay, Math.min(cur.room.w * S + pay, nt.x)); nt.z = Math.max(-pay, Math.min(cur.room.h * S + pay, nt.z));
+    d.subVectors(nt, tg); tg.add(d); c.position.add(d);
+  }
+  const don = 1.5 * dt * hiz, eg = 1.0 * dt * hiz;
+  if (held3.has("solDon") || held3.has("sagDon") || held3.has("yukari") || held3.has("asagi")) {
+    const sph = new THREE.Spherical().setFromVector3(ofs);
+    if (held3.has("solDon")) sph.theta += don;
+    if (held3.has("sagDon")) sph.theta -= don;
+    if (held3.has("yukari")) sph.phi -= eg;
+    if (held3.has("asagi")) sph.phi += eg;
+    sph.phi = Math.max(0.05, Math.min(three.controls.maxPolarAngle, sph.phi));
+    c.position.copy(tg).add(ofs.setFromSpherical(sph));
+  }
+}
+function kameraSifirla() {
+  if (!three || !cur) return;
+  const R = cur.room, S = 0.01, c = three.camera, tg = three.controls.target;
+  const tg1 = new THREE.Vector3(R.w * S / 2, 0.6, R.h * S / 2);
+  const c1 = new THREE.Vector3(tg1.x - R.w * S * 0.45, Math.max(R.w, R.h) * S * 1.1, tg1.z + R.h * S * 1.55);
+  ucus = { t0: performance.now(), tg0: tg.clone(), c0: c.position.clone(), tg1, c1 };
+}
 function loop3d(t) {
   if (!three || view === "2d") return;
   const dt = Math.min(0.05, lastT ? ((t || 0) - lastT) / 1000 : 0); lastT = t || 0;
   if (view === "fp") stepPlayer(dt);
-  else {
-    if (held.size) {  // WASD: kamerayı hedef noktanın etrafında çevir / eğ
-      const c = three.camera, tg = three.controls.target, ofs = c.position.clone().sub(tg);
-      const sph = new THREE.Spherical().setFromVector3(ofs), hiz = 1.4 * dt;
-      if (held.has("sol")) sph.theta -= hiz;
-      if (held.has("sag")) sph.theta += hiz;
-      if (held.has("ileri")) sph.phi -= hiz * 0.7;
-      if (held.has("geri")) sph.phi += hiz * 0.7;
-      sph.phi = Math.max(0.05, Math.min(three.controls.maxPolarAngle, sph.phi));
-      c.position.copy(tg).add(ofs.setFromSpherical(sph)); c.lookAt(tg);
-    }
-    three.controls.update();
-  }
+  else { step3d(dt); three.controls.update(); }
   three.renderer.render(three.scene, three.camera); three.raf = requestAnimationFrame(loop3d);
 }
 function setView(v) {
   if (v !== "2d" && !window.THREE) { setSave("3D kütüphanesi yüklenemedi", true); return; }
   const was = view;
-  view = v; held.clear(); look = null;
+  view = v; held.clear(); held3.clear(); ucus = null; look = null;
   $("b2d").classList.toggle("on", v === "2d"); $("b3d").classList.toggle("on", v === "3d"); $("bfp").classList.toggle("on", v === "fp");
   svg.style.display = v === "2d" ? "" : "none"; $("view3d").hidden = v === "2d"; $("legend3d").hidden = v === "2d";
   $("cross").hidden = $("pad").hidden = v !== "fp";
