@@ -1676,11 +1676,11 @@ function build3d() {
           for (let j = 0; j < rows; j++) grp.add(box(0.05, 0.05, D, celik, x, H - ((H - base) * (j + 1)) / rows + 0.025, 0));
         }
         grp.add(box(L, 0.05, 0.05, celik, 0, 0.025, D / 2 - 0.025), box(L, 0.05, 0.05, celik, 0, 0.025, -D / 2 + 0.025));
-        // çubukların düzgün durduğu taşıyıcı demir plakalar: her katta raf boyunca (sahadaki kırmızı-kahve lamalar)
+        // çubukların düzgün durduğu taşıyıcı demir plakalar: her katta raf boyunca, yalnız önde ve arkada (ortada yok)
         const plaka = mat(0x6b3a2c, { metalness: 0.35, roughness: 0.7 });
         for (let j = 0; j < rows; j++) {
           const yt = H - ((H - base) * (j + 1)) / rows + 0.05;  // kol üst yüzü
-          for (const z of [D / 2 - 0.09, 0, -D / 2 + 0.09]) grp.add(box(L, 0.04, 0.012, plaka, 0, yt - 0.02, z));
+          for (const z of [D / 2 - 0.09, -D / 2 + 0.09]) grp.add(box(L, 0.04, 0.012, plaka, 0, yt - 0.02, z));
         }
       } else {
         grp.add(box(L, H, t, blue, 0, H / 2, -D / 2 + t / 2));
