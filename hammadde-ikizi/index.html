@@ -778,6 +778,7 @@ window.addEventListener("hashchange", hashGit);
 
 /* ---------- 2D plan ---------- */
 const svg = $("plan");
+let planTam = null, planYak = null;  // planın tamamı / tekerlekle yakınlaştırılmış görünüm
 function frontEdge(r, rot) {
   if (rot === 0) return [r.x1, r.y2, r.x2, r.y2];
   if (rot === 90) return [r.x1, r.y1, r.x1, r.y2];
@@ -787,7 +788,9 @@ function frontEdge(r, rot) {
 function renderPlan() {
   if (!cur) { svg.innerHTML = ""; return; }
   const R = cur.room, m = 60, bad = problems();
-  svg.setAttribute("viewBox", `${-m} ${-m} ${R.w + 2 * m} ${R.h + 2 * m}`);
+  planTam = { x: -m, y: -m, w: R.w + 2 * m, h: R.h + 2 * m };
+  const vb = planYak || planTam;
+  svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   let s = `<defs>
     <pattern id="g10" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="var(--line)" stroke-width=".4"/></pattern>
     <pattern id="g100" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="url(#g10)"/><path d="M100 0H0V100" fill="none" stroke="var(--line)" stroke-width="1.2"/></pattern>
@@ -959,6 +962,22 @@ function lejantYaz() {
 
 /* sürükleme */
 function svgPt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+// 2D planda tekerlek: imlecin altındaki nokta yerinde kalarak yakınlaş / uzaklaş; yakınken boş yeri sürüklemek planı kaydırır
+let planKay = null;
+svg.addEventListener("wheel", (e) => {
+  if (!cur || !planTam) return;
+  e.preventDefault();
+  const dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+  const k = Math.exp(Math.max(-0.5, Math.min(0.5, dy * 0.0015)));
+  const p = svgPt(e), v = planYak || planTam;
+  let w = v.w * k;
+  if (w >= planTam.w) { planYak = null; renderPlan(); return; }  // tamamı göründüyse normale dön
+  if (w < 60) w = 60;
+  const s = w / v.w;
+  planYak = { x: p.x - (p.x - v.x) * s, y: p.y - (p.y - v.y) * s, w, h: v.h * s };
+  renderPlan();
+}, { passive: false });
+svg.addEventListener("dblclick", (e) => { if (!e.target.closest("[data-id]") && planYak) { planYak = null; renderPlan(); } });
 svg.addEventListener("pointerdown", (e) => {
   if (!cur) return;
   if (olcMod) {
@@ -970,7 +989,11 @@ svg.addEventListener("pointerdown", (e) => {
     renderPlan(); return;
   }
   const g = e.target.closest("[data-id]");
-  if (!g) { if (sel) { sel = null; selCell = null; renderAll(false); } return; }
+  if (!g) {
+    if (planYak) { planKay = { x: e.clientX, y: e.clientY, v: { ...planYak }, m: svg.getScreenCTM().a }; try { svg.setPointerCapture(e.pointerId); } catch {} }
+    if (sel) { sel = null; selCell = null; renderAll(false); }
+    return;
+  }
   const it = cur.items.find((i) => i.id === g.dataset.id); if (!it) return;
   if (sel !== it.id) { sel = it.id; selCell = null; }
   const p = svgPt(e);
@@ -987,6 +1010,10 @@ window.addEventListener("pointermove", (e) => {
     if (e.shiftKey) { if (Math.abs(b.x - olcCiz.a.x) > Math.abs(b.y - olcCiz.a.y)) b.y = olcCiz.a.y; else b.x = olcCiz.a.x; }
     olcCiz.b = b; renderPlan(); return;
   }
+  if (planKay) {
+    planYak = { ...planKay.v, x: planKay.v.x - (e.clientX - planKay.x) / planKay.m, y: planKay.v.y - (e.clientY - planKay.y) / planKay.m };
+    renderPlan(); return;
+  }
   if (!dragging || dragging.mode === "3d") return;
   const it = cur.items.find((i) => i.id === dragging.id); if (!it) return;
   const p = svgPt(e), f = fp(it);
@@ -996,7 +1023,7 @@ window.addEventListener("pointermove", (e) => {
 });
 const endDrag = () => {
   if (three) three.controls.enabled = view === "3d";
-  look = null;
+  look = null; planKay = null;
   if (olcCiz) { if (Math.hypot(olcCiz.b.x - olcCiz.a.x, olcCiz.b.y - olcCiz.a.y) >= 5) olculer.push(olcCiz); olcCiz = null; olcGuncelle(); renderPlan(); return; }
   if (!dragging) return;
   if (dragging.moved) {
@@ -1534,13 +1561,36 @@ function init3d() {
     try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
     renderProps(); markSel3d();
   }, true);
-  // içeride gezerken tekerlek: görüş açısını daralt (yakınlaştır) / genişlet
+  // tekerlek: imlecin gösterdiği noktaya doğru yakınlaştır / uzaklaştır
+  controls.enableZoom = false;
   renderer.domElement.addEventListener("wheel", (e) => {
-    if (view !== "fp") return;
+    if (view !== "fp" && view !== "3d") return;
     e.preventDefault();
-    camera.fov = Math.max(25, Math.min(100, camera.fov + Math.sign(e.deltaY) * 5));
-    camera.updateProjectionMatrix();
-    fpFov = camera.fov; showFov();
+    const b = renderer.domElement.getBoundingClientRect();
+    const nx = ((e.clientX - b.left) / b.width) * 2 - 1, ny = -((e.clientY - b.top) / b.height) * 2 + 1;
+    if (view === "fp") {
+      // içeride gez: görüş açısını değiştir, imlecin altındaki yer aynı yerde kalsın diye bakışı o yöne çevir
+      const eskiV = camera.fov * Math.PI / 360, eskiH = Math.atan(Math.tan(eskiV) * camera.aspect);
+      camera.fov = Math.max(25, Math.min(100, camera.fov + Math.sign(e.deltaY) * 5));
+      const yeniV = camera.fov * Math.PI / 360, yeniH = Math.atan(Math.tan(yeniV) * camera.aspect);
+      player.yaw -= Math.atan(nx * Math.tan(eskiH)) - Math.atan(nx * Math.tan(yeniH));
+      player.pitch = Math.max(-1.1, Math.min(1.1, player.pitch + Math.atan(ny * Math.tan(eskiV)) - Math.atan(ny * Math.tan(yeniV))));
+      camera.updateProjectionMatrix();
+      fpFov = camera.fov; showFov();
+      return;
+    }
+    const dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+    const k = Math.exp(Math.max(-0.5, Math.min(0.5, dy * 0.0015)));  // <1 yakınlaş, >1 uzaklaş
+    ray.setFromCamera(new THREE.Vector2(nx, ny), camera);
+    let P = null;
+    for (const h of ray.intersectObjects(world.children, true)) { if (h.object.isSprite) continue; P = h.point.clone(); break; }
+    if (!P) { floorPlane.constant = 0; if (ray.ray.intersectPlane(floorPlane, hitPt)) P = hitPt.clone(); }
+    if (!P) P = ray.ray.at(camera.position.distanceTo(controls.target), new THREE.Vector3());
+    const uzak = camera.position.distanceTo(P);
+    if ((k < 1 && uzak * k < 0.4) || (k > 1 && camera.position.distanceTo(controls.target) * k > 35)) return;
+    camera.position.sub(P).multiplyScalar(k).add(P);
+    controls.target.sub(P).multiplyScalar(k).add(P);
+    controls.update();
   }, { passive: false });
   // fare hangi dolabın üstündeyse onun numarasını göster (60 ms'de bir bakılır)
   let hoverT = 0;
