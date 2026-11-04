@@ -1,0 +1,1803 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Hammadde Deposu İkizi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Yerleşim: üstte senaryo şeridi, solda ekleme paleti, ortada kat planı (cm ölçekli), sağda seçili nesnenin özellikleri */
+:root {
+  --bg: #e9edf1;
+  --panel: #ffffff;
+  --line: #cfd6de;
+  --fg: #18212b;
+  --muted: #5b6878;
+  --accent: #2552c4;      /* raf mavisi */
+  --accent-ink: #ffffff;
+  --tape: #f2c400;        /* yer bandı sarısı */
+  --floor: #f8f9f7;       /* beyaz epoksi zemin */
+  --wall: #3a4552;
+  --box: #c79a63;         /* koli kartonu */
+  --box-edge: #8d6a3e;
+  --warn: #d97706;
+  --bad: #c62828;
+  --ok: #2e7d4f;
+  --font-display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-body: "Barlow", "Segoe UI", Arial, sans-serif;
+  --font-code: "JetBrains Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171d; --panel: #1b222b; --line: #2f3a46; --fg: #e6ebf0; --muted: #94a2b2;
+  --accent: #5b86f0; --accent-ink: #0b1220; --tape: #e8bd12; --floor: #232b35; --wall: #8a98a8;
+  --box: #a98053; --box-edge: #6e5332; --warn: #f0a23a; --bad: #ef5350; --ok: #5cbf86; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171d; --panel: #1b222b; --line: #2f3a46; --fg: #e6ebf0; --muted: #94a2b2;
+  --accent: #5b86f0; --accent-ink: #0b1220; --tape: #e8bd12; --floor: #232b35; --wall: #8a98a8;
+  --box: #a98053; --box-edge: #6e5332; --warn: #f0a23a; --bad: #ef5350; --ok: #5cbf86; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; gap: 12px; max-width: 1500px; margin: 0 auto; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+h1 { font-family: var(--font-display); font-size: 26px; letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+h1 span { color: var(--accent); }
+.scen { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+.scen select, .scen input { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+.scen input { width: 230px; max-width: 100%; }
+.btn { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; display: inline-flex; gap: 6px; align-items: center; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--bad); }
+.btn.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn:disabled { opacity: .45; cursor: default; }
+.mesafe { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mesafe label { display: grid; gap: 3px; font-size: 12px; color: var(--fg); }
+.mesafe .muted { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mesafe label.dar input { border-color: var(--bad); color: var(--bad); }
+.btn.olc.on { background: var(--tape); border-color: var(--tape); color: #1b1b1b; font-weight: 600; }
+.btn.kilit.lock { background: var(--warn); border-color: var(--warn); color: #1b1b1b; font-weight: 600; }
+.models { display: flex; flex-wrap: wrap; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+.mchip { background: none; border: 0; border-radius: 6px; padding: 6px 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.mchip:hover { color: var(--fg); }
+.mchip.on { background: var(--accent); color: var(--accent-ink); }
+.mchip.add { color: var(--accent); border: 1px dashed var(--accent); }
+.modelacts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.modelacts input { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 140px; }
+.chg { font-size: 12px; font-weight: 600; color: var(--warn); }
+.save { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.save.err { color: var(--bad); }
+
+.stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.chip b { font-weight: 600; }
+.chip.bad { border-color: var(--bad); color: var(--bad); }
+
+.main { display: grid; grid-template-columns: 170px minmax(0, 1fr) 310px; gap: 12px; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+.palette { display: grid; gap: 6px; }
+.palette button { display: flex; align-items: center; gap: 8px; text-align: left; background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; }
+.palette button:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.sw { width: 18px; height: 14px; border-radius: 2px; flex: none; }
+.hint { font-size: 12px; color: var(--muted); line-height: 1.45; margin: 10px 0 0; }
+kbd { font-family: var(--font-code); font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+
+.stage { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; height: min(74vh, 720px); min-height: 360px; overflow: hidden; }
+.stage svg { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; }
+#view3d { position: absolute; inset: 0; }
+#view3d canvas { display: block; }
+.stage-bar { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; pointer-events: none; }
+.stage-bar .btn { white-space: nowrap; pointer-events: auto; }
+.legend3d { position: absolute; right: 10px; bottom: 10px; font-size: 12px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; z-index: 2; }
+.legend3d { max-width: calc(100% - 20px); }
+.legend3d.top { max-width: calc(100% - 175px); }  /* içeride gezerken: sağ altta, soldaki ok düğmelerine çarpmadan */
+.cross { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid #fff; border-radius: 50%; mix-blend-mode: difference; pointer-events: none; z-index: 2; }
+.fovtag { position: absolute; left: 50%; top: calc(50% + 22px); transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-size: 12px; font-variant-numeric: tabular-nums; z-index: 2; pointer-events: none; }
+.pad { position: absolute; left: 10px; bottom: 10px; display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; z-index: 2; }
+.pad .btn { justify-content: center; height: 44px; font-size: 18px; padding: 0; touch-action: none; user-select: none; }
+.pad .btn.on { background: var(--accent); color: var(--accent-ink); }
+.empty { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; text-align: center; padding: 20px; color: var(--muted); }
+.empty strong { color: var(--fg); font-size: 16px; }
+.empty .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+.props label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.props input, .props select, .props textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px 7px; color: var(--fg); width: 100%; min-width: 0; font: inherit; }
+.props .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.props .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.props .stack { display: grid; gap: 10px; }
+.props .acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.mover { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; max-width: 240px; }
+.mover .btn { justify-content: center; font-size: 16px; padding: 6px 0; }
+.mover select { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px; }
+.typetag { font-family: var(--font-code); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.cells { display: grid; gap: 3px; }
+.cell { font-family: var(--font-code); font-size: 10px; border: 1px solid var(--line); background: var(--bg); border-radius: 3px; padding: 6px 2px; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cell.full { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); border-color: var(--accent); }
+.cell.sel { outline: 2px solid var(--tape); outline-offset: 0; }
+.addr { font-family: var(--font-code); font-size: 13px; color: var(--accent); }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid var(--line); }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 10px; font-weight: 600; color: var(--muted); }
+.tab.on { color: var(--fg); border-bottom-color: var(--accent); }
+.badge { background: #e8590c; color: #fff; border-radius: 999px; font-size: 11px; padding: 0 6px; margin-left: 4px; }
+.cellbox { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: var(--bg); }
+.cellhead { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill { color: #fff; border-radius: 999px; font-size: 11px; padding: 2px 8px; font-weight: 600; margin-left: auto; }
+.tag { font-size: 11px; border: 1px dashed var(--muted); color: var(--muted); border-radius: 4px; padding: 0 5px; }
+.big { font-size: 15px; font-variant-numeric: tabular-nums; } .big b { font-size: 24px; font-family: var(--font-display); }
+.muted { color: var(--muted); font-weight: 400; }
+.moveRow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.moveRow input { width: 90px; flex: none; }
+.log { max-height: 150px; overflow: auto; }
+.gaps b.bad { color: var(--bad); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.slist { display: grid; gap: 3px; }
+.srow { display: grid; grid-template-columns: 10px auto 1fr auto; gap: 8px; align-items: center; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; font-size: 12px; }
+.rapor { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.donem { display: flex; gap: 4px; }
+.donem .btn { padding: 4px 10px; font-size: 12px; }
+.donem .btn.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.rbar-list { display: grid; gap: 5px; }
+.rbar { display: grid; grid-template-columns: 112px 1fr auto; gap: 6px; align-items: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.rbar .ad { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rbar .cubuk { height: 10px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.rbar .cubuk i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.rbar .muted { grid-column: 2 / 4; font-size: 11px; }
+.srow:hover { border-color: var(--accent); }
+.srow .dot { width: 10px; height: 10px; border-radius: 50%; }
+.srow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.srow .qty { font-variant-numeric: tabular-nums; color: var(--muted); }
+.gaps { font-size: 12px; color: var(--muted); line-height: 1.6; font-variant-numeric: tabular-nums; }
+.gaps .bad { color: var(--bad); font-weight: 600; }
+.confirm { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+
+@media (max-width: 1000px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .palette { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  .stage { height: 62vh; }
+  .palette-panel .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <header>
+    <h1>Hammadde Deposu <span>İkizi</span></h1>
+    <div class="scen">
+      <div class="models" id="models" role="tablist" aria-label="Yerleşim modelleri"></div>
+      <span class="modelacts" id="modelActs"></span>
+      <button class="btn" id="undo" title="Geri al (Ctrl+Z)">↶ Geri</button>
+      <button class="btn" id="redo" title="Yinele (Ctrl+Y)">↷ İleri</button>
+    </div>
+    <span class="save" id="saveState">Yükleniyor…</span>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="main">
+    <aside class="panel palette-panel">
+      <h2>Ekle</h2>
+      <div class="palette" id="palette"></div>
+      <p class="hint">Sürükle: taşı · <kbd>R</kbd> döndür · ok tuşları: 10 cm kaydır (<kbd>Shift</kbd> ile 1 cm) · <kbd>Del</kbd> sil · <kbd>Ctrl+D</kbd> çoğalt</p>
+      <h2 style="margin-top:14px">Oda</h2>
+      <div class="props"><div class="grid2">
+        <label>En (cm)<input id="roomW" type="number" min="200" step="10"></label>
+        <label>Boy (cm)<input id="roomH" type="number" min="200" step="10"></label>
+      </div></div>
+    </aside>
+
+    <section class="stage" id="stage">
+      <div class="stage-bar">
+        <button class="btn on" id="b2d">2D plan</button>
+        <button class="btn" id="b3d">3D görünüm</button>
+        <button class="btn" id="bfp">İçeride gez</button>
+        <button class="btn olc" id="bOlc" aria-pressed="false" title="Planda iki nokta arasını sürükleyerek ölçün; nesne kenarlarına yapışır">📏 Ölç</button>
+        <button class="btn" id="bOlcSil" hidden>Ölçüleri sil</button>
+        <button class="btn kilit" id="bKilit" aria-pressed="false" title="Kilitliyken nesneler seçilir ama taşınmaz, döndürülmez">🔓 Taşımayı kilitle</button>
+      </div>
+      <svg id="plan" aria-label="Depo kat planı"></svg>
+      <div id="view3d" hidden></div>
+      <div class="legend3d" id="legend3d" hidden>Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır</div>
+      <div class="cross" id="cross" hidden></div>
+      <div class="fovtag" id="fovTag" hidden></div>
+      <div class="pad" id="pad" hidden>
+        <span></span><button class="btn" data-k="ArrowUp" aria-label="İleri yürü">↑</button><span></span>
+        <button class="btn" data-k="ArrowLeft" aria-label="Sola dön">↶</button><button class="btn" data-k="ArrowDown" aria-label="Geri yürü">↓</button><button class="btn" data-k="ArrowRight" aria-label="Sağa dön">↷</button>
+      </div>
+      <div class="empty" id="empty" hidden>
+        <strong>Henüz kayıtlı yerleşim yok</strong>
+        <span>Fotoğraflardan çıkarılan tahmini yerleşimle ya da boş bir odayla başlayın.</span>
+        <div class="row"><button class="btn primary" id="startTpl">Tahmini yerleşimle başla</button><button class="btn" id="startBlank">Boş oda</button></div>
+      </div>
+    </section>
+
+    <aside class="panel props" id="props"></aside>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>window.DEPO_MOD = "hammadde"; window.DEPO_SABLON = {"name":"Mevcut durum (hammadde rafı)","surum":1,"room":{"w":1110,"h":393},"items":[{"id":"rA","type":"dolap","name":"A","x":0,"y":0,"w":1110,"d":193,"h":180,"rot":0,"cols":22,"rows":3,"kova":0,"cells":{},"note":"11,1 m × 1,93 m; 22 bölme × 3 kat; bölme 40 cm, mavi plaka 10 cm. Yükseklik ölçülmedi (180 cm varsayıldı)"},{"id":"zK","type":"bant","name":"Koridor","x":0,"y":193,"w":1110,"d":200,"h":0,"rot":0,"note":"Rafın önü: vinç ve forklift alanı (ölçü verilmedi)"}]};</script>
+<script>
+(() => {
+const TYPES = {
+  dolap: { label: "Kitaplık / dolap", w: 190, d: 45, h: 250, solid: true },
+  koli:  { label: "Koli yığını", w: 50, d: 40, h: 30, solid: true },
+  kova:  { label: "Kova", w: 40, d: 40, h: 55, solid: true },  // sahada ölçülen: çap 40, boy 55 cm
+  bant:  { label: "Bant alanı (zemin)", w: 200, d: 120, h: 0, solid: false },
+  tezgah:{ label: "Tezgâh / korkuluk", w: 300, d: 60, h: 110, solid: true },
+  masa:  { label: "Masa", w: 100, d: 50, h: 75, solid: true },
+  engel: { label: "Engel (klima, kolon)", w: 100, d: 80, h: 200, solid: true },
+  kapi:  { label: "Kapı / giriş", w: 90, d: 10, h: 0, solid: false },
+};
+const SW = { dolap: "var(--accent)", koli: "var(--box)", kova: "#e04050", bant: "var(--tape)", tezgah: "#dfe3e8", masa: "#b9c2cc", engel: "var(--wall)", kapi: "var(--ok)" };
+const GRID = 10;
+/* aynı kod iki depoyu çalıştırır: bileşen (adet, bölme C04-A02) ve hammadde (kg, bölme A 0101 = sütun 01, kat 01) */
+const HM = window.DEPO_MOD === "hammadde";
+const BIRIM = HM ? "kg" : "adet";
+const LS_KEY = HM ? "hammadde-ikiz-v1" : "depo-ikiz-v1";
+const SAYI = (v) => (HM ? Math.round((Number(v) || 0) * 10) / 10 : Math.round(Number(v) || 0));  // kg'da bir ondalık
+const fmtN = (v) => (v == null || v === "" ? "—" : HM ? Number(v).toLocaleString("tr-TR", { maximumFractionDigits: 1 }) : String(v));
+
+let db = null, mode = "loading";          // "db" | "local"
+let scenarios = {};                       // id -> doc body
+let curId = null, cur = null;             // cur: düzenlenen kopya
+let sel = null, selCell = null, panel = "nesne";
+let undoStack = [], redoStack = [];
+let dirty = false, saving = false, saveTimer = null, saveErr = false, lastWrite = "";
+let dragging = null;
+// anahtar sırasından bağımsız karşılaştırma (sunucu alanları sıralı döndürebiliyor)
+const norm = (o) => JSON.stringify(o, (k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).filter((x) => x !== "updated").sort().map((x) => [x, v[x]])) : v));
+let view = "2d";
+
+const $ = (id) => document.getElementById(id);
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const snap = (v, g = GRID) => Math.round(v / g) * g;
+const fp = (it) => (it.rot % 180 === 0 ? { w: it.w, d: it.d } : { w: it.d, d: it.w });
+const rect = (it) => { const f = fp(it); return { x1: it.x, y1: it.y, x2: it.x + f.w, y2: it.y + f.d }; };
+const isSolid = (it) => TYPES[it.type]?.solid;
+const codeBase = (name) => String(name || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "X";
+const pad2 = (n) => String(n).padStart(2, "0");
+const cellAddr = HM ? (it, c, r) => `${codeBase(it.name)}-${pad2(c + 1)}${pad2(r + 1)}` : (it, c, r) => `${codeBase(it.name)}-${String.fromCharCode(65 + c)}${pad2(r + 1)}`;
+// adresten sütun / kat (0'dan) ; ekranda hammadde adresi raftaki gibi "A 0101" yazılır
+function addrParse(a) { const p = String(a).split("-")[1] || ""; return HM ? { c: +p.slice(0, 2) - 1, r: +p.slice(2, 4) - 1 } : { c: p.charCodeAt(0) - 65, r: parseInt(p.slice(1), 10) - 1 }; }
+const addrGoster = (a) => (HM ? String(a).replace("-", " ") : a);
+
+/* ---------- veri ---------- */
+function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch { return null; } }
+function lsWrite() { try { localStorage.setItem(LS_KEY, JSON.stringify({ scenarios, curId })); } catch {} }
+function lsCur() { try { return localStorage.getItem(LS_KEY + "-cur"); } catch { return null; } }
+function lsSetCur(id) { try { localStorage.setItem(LS_KEY + "-cur", id); } catch {} }
+
+async function loadTemplate() {
+  if (window.DEPO_SABLON) return clone(window.DEPO_SABLON);
+  try { const r = await fetch("sablon.json"); if (r.ok) return await r.json(); } catch {}
+  return { name: "Yeni depo", room: { w: 800, h: 560 }, items: [] };
+}
+
+function setSave(text, err = false) { const el = $("saveState"); el.textContent = text; el.classList.toggle("err", err); }
+
+function scheduleSave() {
+  dirty = true; scenarios[curId] = clone(cur);
+  setSave("Kaydedilecek…");
+  clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 700);
+}
+async function flushSave() {
+  if (!dirty || !curId) return;
+  if (mode === "local") { scenarios[curId] = clone(cur); lsWrite(); dirty = false; setSave("Bu tarayıcıda kayıtlı"); return; }
+  if (saving) { clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 400); return; }
+  saving = true; dirty = false; setSave("Kaydediliyor…");
+  scenarios[curId] = clone(cur);
+  const body = clone(cur); body.updated = new Date().toISOString(); cur.updated = lastWrite = body.updated;
+  try { await db.collection("senaryolar").doc(curId).set(body); setSave("Kaydedildi"); saveErr = false; }
+  catch (e) {
+    dirty = true; saveErr = true;
+    setSave(e && e.code === "quota_exceeded" ? "Kayıt alanı dolu" : "Kaydedilemedi, tekrar denenecek", true);
+    if (e && e.code === "unavailable") { setTimeout(flushSave, 1500 + Math.random() * 1000); }
+  }
+  saving = false;
+  if (dirty && !saveErr) flushSave();
+}
+
+function pushUndo() { undoStack.push(JSON.stringify(cur)); if (undoStack.length > 80) undoStack.shift(); redoStack = []; updUndo(); }
+function updUndo() { $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; }
+function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(cur)); cur = JSON.parse(undoStack.pop()); afterEdit(true); }
+function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(cur)); cur = JSON.parse(redoStack.pop()); afterEdit(true); }
+function afterEdit(full) { if (sel && !cur.items.find((i) => i.id === sel)) sel = null; updUndo(); scheduleSave(); renderAll(full); }
+
+function openScenario(id) {
+  curId = id; cur = clone(scenarios[id]); sel = null; selCell = null; undoStack = []; redoStack = []; updUndo();
+  // eski sürümün eklediği küçük dolapları (160×40×210) depodaki dolap ölçüsüne getir
+  const ref = cur.items.find((i) => i.type === "dolap" && !(i.w === 160 && i.d === 40 && i.h === 210));
+  let fixed = false;
+  if (ref) cur.items.forEach((i) => { if (i.type === "dolap" && i.w === 160 && i.d === 40 && i.h === 210) { const f = fp(i), cx = i.x + f.w / 2, cy = i.y + f.d / 2; Object.assign(i, { w: ref.w, d: ref.d, h: ref.h }); const n = fp(i); i.x = snap(cx - n.w / 2, 5); i.y = snap(cy - n.d / 2, 5); fixed = true; } });
+  // dolabın parçası olarak çizilen kovaları tek tek taşınabilen kova nesnelerine çevir
+  cur.items.filter((i) => i.type === "dolap" && i.kova > 0).forEach((d) => { const n = d.kova; d.kova = 0; for (let k = 0; k < n; k++) addKovaOn(d, k, n); fixed = true; });
+  // raflar boşsa örnek o-ring / pul / bilya içeriğiyle doldur (örnek olduğu işaretli)
+  // eski sürümlerden kalan yazı-bölmeler (miktarsız) varken de çalışır; yalnız boş bölmeleri doldurur, bir kez
+  if (!cur.ornekDolduruldu && !tumBolmeler().some((b) => b.c.miktar != null)) { ornekDoldur(); fixed = true; }
+  cur.hareketler = cur.hareketler || [];
+  if (cur.surum) { cur.sablonSurum = cur.surum; delete cur.surum; fixed = true; }  // şablondan yeni açılmış kayıt
+  if (id === MEVCUT && !cur.yerlesimBaz) { cur.yerlesimBaz = yalinYerlesim(cur); fixed = true; }
+  if (id !== MEVCUT && cur.yerlesimBaz) { delete cur.yerlesimBaz; fixed = true; }
+  baz = id === MEVCUT ? { ...clone(cur.yerlesimBaz), name: cur.name } : null; onay = null;
+  lsSetCur(id); renderAll(true);
+  if (fixed) scheduleSave();
+  hashGit();
+  if (id === MEVCUT) sablonKontrol();
+}
+
+/* şablon (saha ölçüleri) yenilendiyse mevcut durumu bir kez ona geçir:
+   eski yerleşim "Eski yerleşim" modeli olarak saklanır, dolap içerikleri ve hareketler (dolap koduna göre) taşınır */
+let sablonCalisiyor = false;
+async function sablonKontrol() {
+  if (sablonCalisiyor || curId !== MEVCUT || !cur) return;
+  const t = await loadTemplate(), sv = t.surum || 1;
+  if (curId !== MEVCUT || (cur.sablonSurum || 1) >= sv) return;
+  sablonCalisiyor = true;
+  try {
+    await flushSave();
+    const eski = clone(cur); delete eski.yerlesimBaz; delete eski.updated; eski.name = "Eski yerleşim";
+    const eid = "s" + Date.now().toString(36);
+    scenarios[eid] = eski;
+    if (mode === "db") { try { await db.collection("senaryolar").doc(eid).set(eski); } catch {} } else lsWrite();
+    const yeni = birlestir(t, cur); yeni.name = t.name; yeni.sablonSurum = sv; delete yeni.surum; delete yeni.yerlesimBaz;
+    curId = MEVCUT; cur = yeni; dirty = true; await flushSave();
+    openScenario(MEVCUT);
+    setSave("Saha ölçüleri uygulandı · önceki yerleşim \"Eski yerleşim\" modelinde");
+  } finally { sablonCalisiyor = false; }
+}
+
+async function createScenario(body) {
+  const id = "s" + Date.now().toString(36);
+  scenarios[id] = clone(body);
+  curId = id; cur = clone(body); dirty = true; sel = null;
+  renderAll(true); await flushSave(); openScenario(id);
+}
+
+/* ---------- başlangıç ---------- */
+async function boot() {
+  renderPalette();
+  const timer = setTimeout(() => { if (mode === "loading") setSave("Veriye ulaşılamıyor, bekleniyor…", true); }, 10000);
+  try { db = window.claude?.use ? await window.claude.use("db") : null; } catch { db = null; }
+  if (!db) {
+    clearTimeout(timer); mode = "local";
+    const saved = lsRead();
+    if (saved && saved.scenarios && Object.keys(saved.scenarios).length) { scenarios = saved.scenarios; openScenario(saved.curId in scenarios ? saved.curId : Object.keys(scenarios)[0]); }
+    else { const t = await loadTemplate(); scenarios = { mevcut: t }; lsWrite(); openScenario("mevcut"); }
+    setSave("Bu tarayıcıda kayıtlı");
+    return;
+  }
+  mode = "db";
+  db.collection("senaryolar").onSnapshot((qs) => {
+    if (!qs.metadata.fromCache) clearTimeout(timer);
+    // kendi yazımız onaylanmadan ya da sürükleme sürerken gelen görüntüyle ekranı ezme
+    if (qs.metadata.hasPendingWrites || dragging) { return; }
+    const next = {};
+    qs.docs.forEach((d) => { next[d.id] = clone(d.data()); });
+    // düzenlediğimiz senaryoyu, bekleyen yerel değişiklik varken ezme
+    if (curId && (dirty || saving) && scenarios[curId]) next[curId] = scenarios[curId];
+    scenarios = next;
+    if (!Object.keys(scenarios).length) {
+      if (!qs.metadata.fromCache) { curId = null; cur = null; setSave("Boş"); renderAll(true); }
+      return;
+    }
+    if (!curId || !scenarios[curId]) { const want = lsCur(); openScenario(want && scenarios[want] ? want : (scenarios.mevcut ? "mevcut" : Object.keys(scenarios)[0])); }
+    else if (!dirty && !saving && !dragging) {
+      const inc = scenarios[curId];
+      // daha eski bir kayıt geldiyse (yenileme gecikmesi) bizimkini koru
+      if (lastWrite && inc.updated && inc.updated < lastWrite) { scenarios[curId] = clone(cur); renderScenBar(); return; }
+      if (norm(inc) !== norm(cur)) { cur = clone(inc); renderAll(true); } else renderScenBar();
+    } else renderScenBar();
+    if (!dirty && !saving && !saveErr) setSave("Kaydedildi");
+  }, (e) => { clearTimeout(timer); setSave("Bağlantı kesildi: değişiklikler kaydedilmiyor", true); });
+}
+
+/* ---------- mevcut durum ve modeller ----------
+   "mevcut" deponun bugünkü hali; modeller onun denenmiş kopyaları.
+   Mevcut durumda yerleşim değişirse değişiklik bir modele kaydedilir, mevcut durum bozulmaz.
+   Stok (bölme içerikleri ve hareketler) yerleşimden ayrı tutulur: dönüşlerde stok korunur. */
+const MEVCUT = "mevcut";
+let baz = null, onay = null;  // baz: mevcut durumun açıldığı andaki hali; onay: iki adımlı işlem bekleyen düğme
+const yerlesimAnahtar = (s) => norm({ room: s.room, items: s.items.map(({ cells, ...r }) => r) });
+const mevcutDegisti = () => curId === MEVCUT && cur && baz && yerlesimAnahtar(cur) !== yerlesimAnahtar(baz);
+// yerleşimi `yer`den, stok verisini `stok`tan alan yeni durum
+function birlestir(yer, stok) {
+  const out = clone(yer), byId = Object.fromEntries((stok.items || []).map((i) => [i.id, i]));
+  out.items.forEach((i) => { if (i.type === "dolap") i.cells = byId[i.id] ? clone(byId[i.id].cells || {}) : i.cells || {}; });
+  out.hareketler = clone(stok.hareketler || []); out.name = stok.name; out.ornekDolduruldu = stok.ornekDolduruldu;
+  if (stok.yerlesimBaz) out.yerlesimBaz = clone(stok.yerlesimBaz); else delete out.yerlesimBaz;
+  return out;
+}
+// mevcut durumun "başa dön" noktası kaydın içinde saklanır (sayfa yenilense de kaybolmaz); stoksuz, küçük
+const yalinYerlesim = (s) => ({ room: clone(s.room), items: s.items.map(({ cells, ...r }) => clone(r)) });
+function modelIds() { return Object.keys(scenarios).filter((id) => id !== MEVCUT).sort(); }
+function yeniModelAdi() {
+  const n = Object.values(scenarios).map((s) => /^Model (\d+)$/.exec(s.name || "")).filter(Boolean).map((m) => +m[1]);
+  return "Model " + (Math.max(0, ...n, modelIds().length) + 1);
+}
+function renderScenBar() {
+  const ids = (scenarios[MEVCUT] ? [MEVCUT] : []).concat(modelIds());
+  $("models").innerHTML = ids.map((id) => `<button class="mchip${id === curId ? " on" : ""}" role="tab" aria-selected="${id === curId}" data-open="${esc(id)}">${id === MEVCUT ? "Mevcut durum" : esc(scenarios[id].name || "Model")}</button>`).join("")
+    + `<button class="mchip add" id="mAdd" title="Şu an gördüğünüz yerleşimin kopyasıyla yeni model açar">+ Model ekle</button>`;
+  let a = "";
+  if (!cur) a = "";
+  else if (curId === MEVCUT) {
+    if (mevcutDegisti()) a = `<span class="chg">Mevcut durumda değişiklik var</span>
+      <button class="btn primary" id="mKaydet">Model olarak kaydet</button>`
+      + (onay === "degistir" ? `<span class="confirm">Sahada bu değişikliği yaptınız mı? <button class="btn primary" id="mDegistirEvet">Evet, mevcut durumu değiştir</button><button class="btn" id="mVazgec">Vazgeç</button></span>`
+        : `<button class="btn" id="mDegistir" title="Depoda fiilen yaptığınız değişikliği mevcut durum olarak kaydeder">✓ Mevcut durumu değiştir</button>`)
+      + `<button class="btn" id="mDon" title="Yerleşimi son kaydedilen mevcut duruma getirir; stok kayıtları korunur">↺ Mevcut duruma dön</button>`;
+    else a = `<span class="hint" style="margin:0">Değişiklik yapınca "Model olarak kaydet" çıkar.</span>`;
+  } else {
+    a = `<input id="mAd" aria-label="Model adı" value="${esc(cur.name || "")}">
+      <button class="btn primary" id="mDon">↺ Mevcut duruma dön</button>`
+      + (onay === "uygula" ? `<span class="confirm">Depo bu modele göre düzenlendi mi? <button class="btn primary" id="mUygulaEvet">Evet, mevcut durum yap</button><button class="btn" id="mVazgec">Vazgeç</button></span>`
+        : `<button class="btn" id="mUygula" title="Depoyu fiilen bu modele göre düzenlediyseniz mevcut durum bu yerleşim olur">✓ Mevcut durumu bununla değiştir</button>`)
+      + (onay === "sil" ? `<span class="confirm">${esc(cur.name)} silinsin mi? <button class="btn danger" id="mSilEvet">Evet, sil</button><button class="btn" id="mVazgec">Vazgeç</button></span>`
+        : `<button class="btn danger" id="mSil">Modeli sil</button>`);
+  }
+  const ma = $("modelActs"), focused = document.activeElement?.id === "mAd";
+  if (!focused) ma.innerHTML = a;
+}
+async function modeleKaydet() {
+  // mevcut durumdaki değişikliği yeni modele taşı, mevcut durumu açıldığı haline döndür
+  const model = clone(cur); model.name = yeniModelAdi(); delete model.updated; delete model.yerlesimBaz;
+  cur = birlestir(baz, cur); dirty = true; await flushSave();
+  await createScenario(model);
+  setSave(`${model.name} kaydedildi · mevcut durum korundu`);
+}
+async function mevcutaDon() {
+  onay = null;
+  if (curId === MEVCUT) { if (!mevcutDegisti()) return; pushUndo(); cur = birlestir(baz, cur); afterEdit(true); setSave("Mevcut duruma dönüldü"); return; }
+  await flushSave(); if (scenarios[MEVCUT]) openScenario(MEVCUT);
+}
+$("models").addEventListener("click", async (e) => {
+  const b = e.target.closest("button"); if (!b || !cur) return;
+  onay = null;
+  if (b.id === "mAdd") {
+    if (mevcutDegisti()) return modeleKaydet();
+    await flushSave(); const m = clone(cur); m.name = yeniModelAdi(); delete m.updated; delete m.yerlesimBaz; return createScenario(m);
+  }
+  if (b.dataset.open && b.dataset.open !== curId) { await flushSave(); openScenario(b.dataset.open); }
+});
+$("modelActs").addEventListener("input", (e) => { if (e.target.id === "mAd" && cur) { cur.name = e.target.value; scenarios[curId] = clone(cur); scheduleSave(); } });
+$("modelActs").addEventListener("change", (e) => { if (e.target.id === "mAd") renderScenBar(); });
+$("modelActs").addEventListener("click", async (e) => {
+  const t = e.target.closest("button"); if (!t || !cur) return;
+  if (t.id === "mKaydet") return modeleKaydet();
+  if (t.id === "mDon") return mevcutaDon();
+  if (t.id === "mSil" || t.id === "mUygula" || t.id === "mDegistir") { onay = { mSil: "sil", mUygula: "uygula", mDegistir: "degistir" }[t.id]; return renderScenBar(); }
+  if (t.id === "mDegistirEvet") {
+    // sahadaki fiziksel değişiklik: ekrandaki yerleşim yeni mevcut durum (yeni başa dön noktası) olur
+    onay = null; cur.yerlesimBaz = yalinYerlesim(cur); baz = { ...clone(cur.yerlesimBaz), name: cur.name };
+    dirty = true; await flushSave(); renderAll(true); setSave("Mevcut durum güncellendi");
+    return;
+  }
+  if (t.id === "mVazgec") { onay = null; return renderScenBar(); }
+  if (t.id === "mSilEvet") {
+    onay = null; const id = curId; clearTimeout(saveTimer); dirty = false;
+    delete scenarios[id];
+    if (mode === "db") { try { await db.collection("senaryolar").doc(id).delete(); } catch { setSave("Silinemedi", true); } } else lsWrite();
+    curId = null; openScenario(scenarios[MEVCUT] ? MEVCUT : Object.keys(scenarios)[0]);
+    return;
+  }
+  if (t.id === "mUygulaEvet") {
+    // modelin yerleşimi + mevcut durumun stok kayıtları = yeni mevcut durum
+    onay = null; await flushSave();
+    const yeni = birlestir(cur, scenarios[MEVCUT] || cur), ad = cur.name;
+    yeni.yerlesimBaz = yalinYerlesim(yeni);  // yeni başa dön noktası bu yerleşim
+    curId = MEVCUT; cur = yeni; dirty = true; await flushSave(); openScenario(MEVCUT);
+    setSave(`${ad} artık mevcut durum`);
+  }
+});
+$("undo").addEventListener("click", undo);
+$("redo").addEventListener("click", redo);
+$("startTpl").addEventListener("click", async () => { const t = await loadTemplate(); scenarios.mevcut = t; curId = "mevcut"; cur = clone(t); dirty = true; await flushSave(); openScenario("mevcut"); });
+$("startBlank").addEventListener("click", () => createScenario({ name: "Boş depo", room: { w: 800, h: 560 }, items: [] }));
+
+/* ---------- palet ---------- */
+function renderPalette() {
+  $("palette").innerHTML = Object.entries(TYPES).map(([k, t]) => `<button data-add="${k}"><span class="sw" style="background:${SW[k]};${k === "bant" ? "border:2px solid var(--tape);background:transparent" : ""}"></span>${t.label}</button>`).join("");
+}
+$("palette").addEventListener("click", (e) => { const b = e.target.closest("[data-add]"); if (b && cur) addItem(b.dataset.add); });
+
+function nextName(type) {
+  const nums = (prefix) => cur.items.filter((i) => i.type === type).map((i) => parseInt(String(i.name).replace(prefix, ""), 10)).filter((n) => !isNaN(n));
+  if (type === "dolap") { const n = Math.max(0, ...nums(/^C-?/i)) + 1; return "C-" + String(n).padStart(2, "0"); }
+  if (type === "bant") { const n = Math.max(0, ...nums(/^Y-?/i)) + 1; return "Y-" + n; }
+  return { koli: "Koli", kova: "Kova", tezgah: "Tezgâh", masa: "Masa", engel: "Engel", kapi: "Kapı" }[type];
+}
+function freeSpot(w, d) {
+  const R = cur.room;
+  for (let y = 0; y + d <= R.h; y += 10) for (let x = 0; x + w <= R.w; x += 10) {
+    const r = { x1: x, y1: y, x2: x + w, y2: y + d };
+    if (!cur.items.some((o) => isSolid(o) && !(o.z > 0) && hit(r, rect(o)))) return { x, y };
+  }
+  return { x: snap((R.w - w) / 2), y: snap((R.h - d) / 2) };
+}
+function addItem(type) {
+  pushUndo();
+  const t = TYPES[type];
+  const it = { id: "i" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type, name: nextName(type), w: t.w, d: t.d, h: t.h, rot: 0, x: 0, y: 0 };
+  if (type === "dolap") {
+    // yeni dolap, depodaki mevcut dolaplarla aynı ölçüde gelsin
+    const ref = cur.items.find((i) => i.type === "dolap");
+    Object.assign(it, { cols: 4, rows: 6, kova: 0, cells: {} });
+    if (ref) Object.assign(it, { w: ref.w, d: ref.d, h: ref.h, cols: ref.cols, rows: ref.rows });
+  }
+  if (type === "koli") it.stack = 3;
+  const p = TYPES[type].solid ? freeSpot(it.w, it.d) : { x: snap((cur.room.w - it.w) / 2), y: snap((cur.room.h - it.d) / 2) };
+  it.x = p.x; it.y = p.y; it.z = 0;
+  cur.items.push(it); sel = it.id; selCell = null;
+  afterEdit(true);
+}
+
+/* ---------- geometri ---------- */
+function hit(a, b) { return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1; }
+
+/* üst üste koyma: z = zeminden taban yüksekliği (cm) */
+const tall = (it) => (it.type === "koli" ? (it.h || 0) * (it.stack || 1) : TYPES[it.type]?.solid ? it.h || 0 : 0);
+const topOf = (it) => (it.z || 0) + tall(it);
+const zHit = (a, b) => (a.z || 0) < topOf(b) - 0.5 && (b.z || 0) < topOf(a) - 0.5;
+const centerIn = (it, o) => { const r = rect(it), q = rect(o), cx = (r.x1 + r.x2) / 2, cy = (r.y1 + r.y2) / 2; return cx > q.x1 && cx < q.x2 && cy > q.y1 && cy < q.y2; };
+// bir nesnenin üstünde duranlar (onlar da onunla birlikte taşınır)
+function ridersOf(it, acc = []) {
+  cur.items.forEach((o) => { if (o !== it && isSolid(o) && !acc.includes(o) && (o.z || 0) > 0 && Math.abs((o.z || 0) - topOf(it)) < 1 && centerIn(o, it)) { acc.push(o); ridersOf(o, acc); } });
+  return acc;
+}
+// bırakılan nesneyi, ortası üstüne gelen en yüksek nesnenin üstüne oturt; yoksa zemine indir
+function settle(it, riders = []) {
+  if (!isSolid(it)) { it.z = 0; return; }
+  const old = it.z || 0;
+  const below = cur.items.filter((o) => o !== it && isSolid(o) && !riders.includes(o) && centerIn(it, o));
+  const z = below.length ? Math.max(...below.map(topOf)) : 0;
+  it.z = z; riders.forEach((r) => (r.z = (r.z || 0) + (z - old)));
+}
+// dolabın üstüne kova koy: k/n verilirse boy boyunca eşit aralıkla, yoksa ilk boş yere
+function addKovaOn(d, k, n) {
+  const r = rect(d), along = r.x2 - r.x1 >= r.y2 - r.y1, len = along ? r.x2 - r.x1 : r.y2 - r.y1, KD = TYPES.kova.w;
+  const at = (t) => (along ? { x: Math.round(r.x1 + t - KD / 2), y: Math.round((r.y1 + r.y2) / 2 - KD / 2) } : { x: Math.round((r.x1 + r.x2) / 2 - KD / 2), y: Math.round(r.y1 + t - KD / 2) });
+  let p;
+  if (n) p = at(((k + 0.5) * len) / n);
+  else {
+    const on = ridersOf(d);
+    for (let t = KD / 2; t <= len - KD / 2 && !p; t += 5) { const c = at(t), q = { x1: c.x, y1: c.y, x2: c.x + KD, y2: c.y + KD }; if (!on.some((o) => hit(q, rect(o)))) p = c; }
+    p = p || at(len / 2);
+  }
+  const it = { id: "kv" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), type: "kova", name: "Kova", w: KD, d: KD, h: TYPES.kova.h, rot: 0, x: p.x, y: p.y, z: topOf(d) };
+  cur.items.push(it);
+  return it;
+}
+function moveBy(it, dx, dy, riders) { it.x += dx; it.y += dy; riders.forEach((r) => { r.x += dx; r.y += dy; }); }
+function problems() {
+  const bad = new Set(), solids = cur.items.filter(isSolid);
+  for (let i = 0; i < solids.length; i++) for (let j = i + 1; j < solids.length; j++) if (hit(rect(solids[i]), rect(solids[j])) && zHit(solids[i], solids[j])) { bad.add(solids[i].id); bad.add(solids[j].id); }
+  cur.items.forEach((it) => { const r = rect(it); if (r.x1 < 0 || r.y1 < 0 || r.x2 > cur.room.w || r.y2 > cur.room.h) bad.add(it.id); });
+  return bad;
+}
+function gapsOf(it) {
+  const r = rect(it), R = cur.room, others = cur.items.filter((o) => o.id !== it.id && isSolid(o) && zHit(o, it));
+  const g = { sol: r.x1, sag: R.w - r.x2, ust: r.y1, alt: R.h - r.y2, ad: { sol: "duvar", sag: "duvar", ust: "duvar", alt: "duvar" } };
+  // her yönde en yakın komşu (adıyla); komşu yoksa duvar
+  const yaz = (k, v, o) => { if (v < g[k]) { g[k] = v; g.ad[k] = o.name || TYPES[o.type].label; } };
+  others.forEach((it2) => {
+    const o = rect(it2);
+    if (o.y1 < r.y2 && o.y2 > r.y1) { if (o.x2 <= r.x1) yaz("sol", r.x1 - o.x2, it2); if (o.x1 >= r.x2) yaz("sag", o.x1 - r.x2, it2); }
+    if (o.x1 < r.x2 && o.x2 > r.x1) { if (o.y2 <= r.y1) yaz("ust", r.y1 - o.y2, it2); if (o.y1 >= r.y2) yaz("alt", o.y1 - r.y2, it2); }
+  });
+  return g;
+}
+function kolisIn(zone) { const z = rect(zone); return cur.items.filter((i) => i.type === "koli").filter((k) => { const r = rect(k), cx = (r.x1 + r.x2) / 2, cy = (r.y1 + r.y2) / 2; return cx > z.x1 && cx < z.x2 && cy > z.y1 && cy < z.y2; }); }
+
+/* ---------- stok: bölme içeriği, hareketler, tüketim ---------- */
+const TUR = { oring: { ad: "O-ring", renk: 0x1d1f22 }, teflon: { ad: "Teflon halka", renk: 0xf1f1ec }, pul: { ad: "Pul", renk: 0xc07a3c }, bilya: { ad: "Bilya", renk: 0xb9c0c8 }, diger: { ad: "Diğer", renk: 0x8a94a0 } };
+const DURUM = { bitti: { ad: "Bitti", renk: "#c62828" }, kritik: { ad: "Kritik", renk: "#e8590c" }, az: { ad: "Azalıyor", renk: "#e0a100" }, iyi: { ad: "Yeterli", renk: "#2e7d4f" }, bilinmiyor: { ad: "Miktar yok", renk: "#8a94a0" } };
+const TEDARIK_GUN = 7;  // sipariş verilince malın gelmesi için varsayılan süre
+const bugun = (d = new Date()) => d.toISOString().slice(0, 10);
+function cellOf(d, a) { const v = (d.cells || {})[a]; if (v == null || v === "") return null; return typeof v === "string" ? { ad: v } : v; }
+function durumOf(c) {
+  if (!c || c.miktar == null || c.miktar === "") return "bilinmiyor";
+  if (c.miktar <= 0) return "bitti";
+  if (c.min && c.miktar < c.min) return "kritik";
+  if (c.min && c.miktar < c.min * 1.5) return "az";
+  return "iyi";
+}
+function gunlukOrt(c) { const g = c && c.gunluk; if (!g) return null; const keys = Object.keys(g); if (!keys.length) return null; return Object.values(g).reduce((a, b) => a + b, 0) / 30; }
+function gunYeter(c) { const o = gunlukOrt(c); return o > 0 ? Math.floor((c.miktar || 0) / o) : null; }
+function dolapOfAddr(a) { const base = a.split("-")[0]; return cur.items.find((i) => i.type === "dolap" && codeBase(i.name) === base); }
+function tumBolmeler() {
+  const out = [];
+  cur.items.filter((i) => i.type === "dolap").forEach((d) => { for (let r = 0; r < d.rows; r++) for (let c = 0; c < d.cols; c++) { const a = cellAddr(d, c, r), v = cellOf(d, a); if (v) out.push({ d, a, c: v }); } });
+  return out;
+}
+// tek giriş noktası: al / koy / say — miktar, günlük tüketim ve hareket kaydı birlikte güncellenir
+function hareket(d, a, tip, n, not = "", zaman = new Date()) {
+  const c = cellOf(d, a) || { ad: "" };
+  n = Math.max(0, SAYI(n));
+  const once = Number(c.miktar) || 0;
+  const sonra = SAYI(tip === "al" ? Math.max(0, once - n) : tip === "koy" ? once + n : n);
+  if (tip === "al") { const k = bugun(zaman); c.gunluk = c.gunluk || {}; c.gunluk[k] = SAYI((c.gunluk[k] || 0) + (once - sonra)); }
+  if (c.gunluk) { const sinir = bugun(new Date(zaman.getTime() - 30 * 864e5)); Object.keys(c.gunluk).forEach((k) => { if (k < sinir) delete c.gunluk[k]; }); }
+  c.miktar = sonra;
+  d.cells[a] = c;
+  cur.hareketler = cur.hareketler || [];
+  cur.hareketler.unshift({ t: zaman.toISOString(), a, kod: c.kod || "", mal: c.malzeme || c.tur || "", tip, n: tip === "say" ? SAYI(sonra - once) : n, once, sonra, not });
+  if (cur.hareketler.length > 300) cur.hareketler.length = 300;
+  flash = { a, until: Date.now() + 1500 };
+}
+/* hammadde: malzeme yoğunluğu (g/cm³), profil kesiti (mm²) → kg/m.  Ø40 çelik ≈ 9,86 kg/m */
+const MALZEME = {
+  otomat: { ad: "Otomat çeliği", yog: 7.85, renk: 0x6f7780, uc: 0x1f9e6a },
+  c1040: { ad: "1040 / C45", yog: 7.85, renk: 0x4e5258, uc: 0xd8283c },
+  paslanmaz: { ad: "Paslanmaz 316-L", yog: 8.0, renk: 0xc9d0d6, uc: null },
+  st52: { ad: "St-52 boru", yog: 7.85, renk: 0x5d646b, uc: null },
+  pirinc: { ad: "Pirinç", yog: 8.5, renk: 0xc9a24b, uc: null },
+  aluminyum: { ad: "Alüminyum", yog: 2.7, renk: 0xb8c2cc, uc: null },
+  plastik: { ad: "Plastik (POM/PA)", yog: 1.41, renk: 0xf1f1ec, uc: null },
+};
+const PROFIL = { yuvarlak: "Yuvarlak (Ø)", altikose: "Altıköşe (anahtar ağzı)", kare: "Kare", lama: "Lama (en × kalınlık)", boru: "Boru (dış Ø × et)" };
+function kesitMm2(c) {
+  const a = Number(c.a) || 0, b = Number(c.b) || 0;
+  switch (c.profil) {
+    case "altikose": return 0.866 * a * a;
+    case "kare": return a * a;
+    case "lama": return a * b;
+    case "boru": return b > 0 && b < a / 2 ? (Math.PI / 4) * (a * a - (a - 2 * b) ** 2) : 0;
+    default: return (Math.PI / 4) * a * a;
+  }
+}
+const kgMetre = (c) => kesitMm2(c) * (MALZEME[c.malzeme]?.yog || 7.85) / 1000;
+const olcuYazi = (c) => ({ altikose: `AA${fmtN(c.a)}`, kare: `□${fmtN(c.a)}`, lama: `${fmtN(c.a)}×${fmtN(c.b)}`, boru: `Ø${fmtN(c.a)}×${fmtN(c.b)}` }[c.profil] || `Ø${fmtN(c.a)}`) + " mm";
+function ornekDoldurHM() {
+  let s = 11; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  // sütun → bölge (duvardaki tabelalara göre): 01 boru, 02-05 paslanmaz, 06-11 otomat, 12-16 1040, 17-21 lama otomat, 22 pirinç
+  const bolge = (col) => col === 1 ? "boru" : col <= 5 ? "paslanmaz" : col <= 11 ? "otomat" : col <= 16 ? "c1040" : col <= 21 ? "lama" : "pirinc";
+  cur.items.filter((i) => i.type === "dolap").forEach((d) => {
+    d.cells = d.cells || {};
+    for (let r = 0; r < d.rows; r++) for (let c = 0; c < d.cols; c++) {
+      const a = cellAddr(d, c, r), eski = cellOf(d, a);
+      if (eski && (eski.miktar != null || eski.kod)) continue;
+      if (rnd() < 0.1) continue;
+      const z = bolge(c + 1); let v;
+      if (z === "boru") { const D = pick([42, 48, 60, 76]); v = { malzeme: "st52", profil: "boru", a: D, b: pick([4, 5, 6]) }; }
+      else if (z === "lama") { const en = pick([20, 25, 30, 35, 40, 50]); v = { malzeme: "otomat", profil: "lama", a: en, b: pick([5, 8, 10, 12, 15]) }; }
+      else if (z === "pirinc") v = { malzeme: "pirinc", profil: rnd() < 0.5 ? "altikose" : "yuvarlak", a: pick([8, 10, 12, 14, 17, 19, 22, 24]) };
+      else v = { malzeme: z, profil: z === "otomat" && rnd() < 0.35 ? "altikose" : "yuvarlak", a: pick(z === "paslanmaz" ? [10, 12, 16, 20, 25, 30, 40] : [12, 16, 19, 22, 25, 27, 30, 35, 40, 45, 50, 60]) };
+      v.boy = 3;  // standart çubuk boyu (m), örnek
+      const kgm = kgMetre(v);
+      v.kod = `${{ otomat: "OT", c1040: "1040", paslanmaz: "316L", st52: "ST52", pirinc: "PRC" }[v.malzeme]}-${{ yuvarlak: "Y", altikose: "AK", kare: "K", lama: "L", boru: "B" }[v.profil]}${v.a}${v.b ? "x" + v.b : ""}`;
+      v.ad = `${MALZEME[v.malzeme].ad} ${PROFIL[v.profil].split(" ")[0].toLowerCase()} ${olcuYazi(v)}`;
+      v.min = Math.max(20, Math.round(kgm * v.boy * pick([3, 5, 8]) / 10) * 10);  // en az 3-8 çubuk
+      const x = rnd();
+      v.miktar = SAYI(x < 0.05 ? 0 : x < 0.17 ? v.min * (0.3 + rnd() * 0.6) : x < 0.3 ? v.min * (1.05 + rnd() * 0.4) : v.min * (1.6 + rnd() * 5));
+      v.hiz = SAYI(Math.max(1, kgm * pick([0.3, 0.6, 1, 2])));  // örnek günlük tüketim (kg)
+      v.ornek = true;
+      d.cells[a] = v;
+    }
+  });
+  cur.ornekDolduruldu = true;
+}
+
+// örnek içerik: gerçek stok değildir; her bölmede `ornek: true` işareti durur
+function ornekDoldur() {
+  if (HM) return ornekDoldurHM();
+  let s = 7; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+  const fmt = (v) => String(v).replace(".", ",");
+  const plan = { C02: "oring70", C03: "oring90", C04: "pul", C05: "teflon", C06: "bilya", C01: "oring70" };
+  const uret = (tur) => {
+    if (tur === "oring70" || tur === "oring90") {
+      const kesit = pick([1.5, 1.78, 2, 2.5, 2.62, 3, 3.53, 4, 5.33]), ic = pick([6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 28, 30, 32, 36, 40, 45, 50]), sh = tur === "oring70" ? 70 : 90;
+      const g = +(Math.PI * (ic + kesit) * Math.PI * (kesit / 2) ** 2 * 1.3 / 1000).toFixed(2);
+      return { kod: `OR-${fmt(kesit)}*${ic}-${sh}`, ad: `O-ring ${ic}x${fmt(kesit)} NBR ${sh} Shore`, tur: "oring", kap: rnd() < 0.6 ? "paket" : "kutu", birimG: Math.max(0.05, g), min: pick([100, 150, 200]), hiz: Math.round(2 + rnd() * 30) };
+    }
+    if (tur === "pul") {
+      const t = pick(["bakir", "usit", "alu"]), olc = pick(['1/4"', '3/8"', '1/2"', '3/4"', "M10", "M12", "M14", "M16", "M18", "M22"]);
+      const ad = { bakir: "Bakır pul", usit: "Usit (dowty) pul", alu: "Alüminyum pul" }[t];
+      return { kod: `${{ bakir: "BP", usit: "UP", alu: "AP" }[t]}-${olc.replace('"', "")}`, ad: `${ad} ${olc}`, tur: "pul", kap: rnd() < 0.5 ? "paket" : "kutu", birimG: +(1 + rnd() * 6).toFixed(1), min: pick([100, 200, 300]), hiz: Math.round(3 + rnd() * 35) };
+    }
+    if (tur === "teflon") {
+      const ic = pick([12, 16, 20, 22, 25, 28, 32, 36, 40]), kal = pick([1, 1.2, 1.5]);
+      return { kod: `TF-${fmt(kal)}*${ic}*${ic + 4}`, ad: `Teflon destek halkası ${ic}x${ic + 4}x${fmt(kal)}`, tur: "teflon", kap: rnd() < 0.5 ? "paket" : "kutu", birimG: +(0.2 + rnd()).toFixed(2), min: pick([50, 100]), hiz: Math.round(1 + rnd() * 12) };
+    }
+    const mm = pick([3, 4, 5, 6, 6.35, 7, 8, 9.5, 10, 12, 12.7]);
+    return { kod: `BL-${fmt(mm)}`, ad: `Çelik bilya ${fmt(mm)} mm`, tur: "bilya", kap: rnd() < 0.8 ? "kutu" : "paket", birimG: +((4 / 3) * Math.PI * (mm / 20) ** 3 * 7.85).toFixed(2), min: pick([200, 500]), hiz: Math.round(5 + rnd() * 60) };
+  };
+  cur.items.filter((i) => i.type === "dolap").forEach((d) => {
+    const tur = plan[codeBase(d.name)] || "oring70"; d.cells = d.cells || {};
+    for (let r = 0; r < d.rows; r++) for (let c = 0; c < d.cols; c++) {
+      if (rnd() < 0.12) continue;  // bazı bölmeler boş
+      const v = uret(tur), x = rnd();
+      const a = cellAddr(d, c, r), eski = cellOf(d, a);
+      if (eski && (eski.miktar != null || eski.kod)) continue;  // kullanıcının girdiği bölmeye dokunma
+      if (eski && eski.ad) v.ad = eski.ad;  // eski sürümde yazılan açıklama kalsın
+      // dağılım: çoğu yeterli, bir kısmı azalan / kritik, birkaçı bitmiş
+      v.miktar = x < 0.04 ? 0 : x < 0.16 ? Math.round(v.min * (0.3 + rnd() * 0.6)) : x < 0.3 ? Math.round(v.min * (1.05 + rnd() * 0.4)) : Math.round(v.min * (1.6 + rnd() * 4));
+      v.ornek = true;
+      d.cells[a] = v;
+    }
+  });
+  cur.ornekDolduruldu = true;
+}
+// test: son 30 günün kullanımını örnek tüketim hızlarıyla geriye dönük üret (gelen mallar dahil)
+function simule30() {
+  let s = Date.now() % 100000 + 11; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  tumBolmeler().forEach(({ d, a, c }) => {
+    const hiz = c.hiz || 5; c.gunluk = {}; let m = Number(c.miktar) || c.min * 3 || 100;
+    for (let g = 30; g >= 1; g--) {
+      const t = new Date(Date.now() - g * 864e5);
+      const n = Math.round(hiz * (0.3 + rnd() * 1.4) * (t.getDay() === 0 ? 0 : 1));  // pazar çalışılmıyor
+      // en az miktarın yarısının altına inince tedarikçiden mal gelir
+      if (m < n || m < (c.min || 100) * 0.5) { m += (c.min || 100) * 3; cur.hareketler.unshift({ t: t.toISOString(), a, kod: c.kod || "", tip: "koy", n: (c.min || 100) * 3, once: m - (c.min || 100) * 3, sonra: m, not: "simülasyon: tedarikçiden geldi" }); }
+      const al = Math.min(m, n); m -= al; c.gunluk[bugun(t)] = al;
+    }
+    c.miktar = m; d.cells[a] = c;
+  });
+  cur.hareketler.sort((x, y) => (x.t < y.t ? 1 : -1)); cur.hareketler.length = Math.min(cur.hareketler.length, 300);
+}
+let flash = null, canliTimer = 0, flashTimer = 0;
+function canliAdim() {
+  const list = tumBolmeler().filter((b) => (b.c.miktar || 0) > 0);
+  if (!list.length || !cur) return;
+  // tüketim hızı yüksek olan bölmeler daha sık seçilir
+  const top = list.reduce((s, b) => s + (b.c.hiz || 5), 0); let r = Math.random() * top, b = list[0];
+  for (const x of list) { r -= x.c.hiz || 5; if (r <= 0) { b = x; break; } }
+  const kritikler = tumBolmeler().filter((x) => ["kritik", "bitti"].includes(durumOf(x.c)));
+  if (kritikler.length && Math.random() < 0.15) { const k = kritikler[Math.floor(Math.random() * kritikler.length)]; hareket(k.d, k.a, "koy", (k.c.min || 100) * 3, "canlı test: mal kabul"); }
+  else hareket(b.d, b.a, "al", Math.max(1, Math.round((b.c.hiz || 5) * (0.2 + Math.random() * 0.6))), "canlı test: üretime verildi");
+  scheduleSave();
+  // kullanıcı bir kutuya yazıyorsa paneli yeniden çizip odağını bozma
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)) { renderStats(); renderPlan(); if (view !== "2d") build3d(); }
+  else renderAll(true);
+}
+function goCell(a) {
+  const d = dolapOfAddr(a); if (!d) return false;
+  sel = d.id; selCell = a; panel = "nesne";
+  if (view === "fp") yuruBolmeye(d, a);
+  renderAll(true);
+  setTimeout(() => $("cellBox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50);
+  return true;
+}
+function hashGit() {
+  // #C04-A02 (bileşen) ya da #A0101 / #A-0101 / #A 0101 (hammadde)
+  let h = decodeURIComponent(location.hash.slice(1)).toUpperCase().trim().replace(/\s+/, "-");
+  if (HM && /^[A-Z]+\d{4}$/.test(h)) h = h.replace(/^([A-Z]+)(\d{4})$/, "$1-$2");
+  if ((HM ? /^[A-Z0-9]+-\d{4}$/ : /^[A-Z0-9]+-[A-Z]\d{2}$/).test(h) && cur) goCell(h);
+}
+window.addEventListener("hashchange", hashGit);
+
+/* ---------- 2D plan ---------- */
+const svg = $("plan");
+function frontEdge(r, rot) {
+  if (rot === 0) return [r.x1, r.y2, r.x2, r.y2];
+  if (rot === 90) return [r.x1, r.y1, r.x1, r.y2];
+  if (rot === 180) return [r.x1, r.y1, r.x2, r.y1];
+  return [r.x2, r.y1, r.x2, r.y2];
+}
+function renderPlan() {
+  if (!cur) { svg.innerHTML = ""; return; }
+  const R = cur.room, m = 60, bad = problems();
+  svg.setAttribute("viewBox", `${-m} ${-m} ${R.w + 2 * m} ${R.h + 2 * m}`);
+  let s = `<defs>
+    <pattern id="g10" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="var(--line)" stroke-width=".4"/></pattern>
+    <pattern id="g100" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="url(#g10)"/><path d="M100 0H0V100" fill="none" stroke="var(--line)" stroke-width="1.2"/></pattern>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="var(--wall)" opacity=".25"/><path d="M0 0V8" stroke="var(--wall)" stroke-width="3"/></pattern>
+  </defs>`;
+  s += `<rect x="0" y="0" width="${R.w}" height="${R.h}" fill="var(--floor)"/><rect x="0" y="0" width="${R.w}" height="${R.h}" fill="url(#g100)"/>`;
+  s += `<rect x="-6" y="-6" width="${R.w + 12}" height="${R.h + 12}" fill="none" stroke="var(--wall)" stroke-width="12"/>`;
+  for (let x = 0; x <= R.w; x += 100) s += `<text x="${x}" y="${-22}" font-size="13" text-anchor="middle" fill="var(--muted)" font-family="var(--font-code)">${x / 100}m</text>`;
+  for (let y = 100; y <= R.h; y += 100) s += `<text x="${-22}" y="${y + 4}" font-size="13" text-anchor="middle" fill="var(--muted)" font-family="var(--font-code)">${y / 100}m</text>`;
+
+  const order = { bant: 0, kapi: 1, tezgah: 2, masa: 3, engel: 3, dolap: 4, kova: 5, koli: 6 };
+  // alttakiler önce, üstüne konanlar sonra çizilir (üstteki tıklanabilir kalsın)
+  const items = [...cur.items].sort((a, b) => (a.z || 0) - (b.z || 0) || order[a.type] - order[b.type]);
+  for (const it of items) {
+    const r = rect(it), w = r.x2 - r.x1, d = r.y2 - r.y1, cx = r.x1 + w / 2, cy = r.y1 + d / 2;
+    const isSel = it.id === sel, isBad = bad.has(it.id);
+    const stroke = isBad ? "var(--bad)" : isSel ? "var(--fg)" : null;
+    let g = `<g data-id="${esc(it.id)}" style="cursor:move">`;
+    if (it.z > 0) g += `<rect x="${r.x1 + 4}" y="${r.y1 + 4}" width="${w}" height="${d}" fill="#000" opacity=".28" pointer-events="none"/>`;
+    const fs = Math.max(10, Math.min(18, Math.min(w, d) * 0.45));
+    if (it.type === "dolap") {
+      g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="var(--accent)" stroke="${stroke || "var(--accent)"}" stroke-width="${stroke ? 3 : 1}"/>`;
+      const [a, b, c, e] = frontEdge(r, it.rot);
+      g += `<line x1="${a}" y1="${b}" x2="${c}" y2="${e}" stroke="#fff6d8" stroke-width="5"/>`;
+      const vertical = d > w, n = it.kova || 0;
+      for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; const px = vertical ? cx : r.x1 + t * w, py = vertical ? r.y1 + t * d : cy; g += `<circle cx="${px}" cy="${py}" r="${Math.min(w, d) * 0.32}" fill="none" stroke="#ffd0d6" stroke-width="2" opacity=".9"/>`; }
+      const vals = Object.keys(it.cells || {}).map((a) => cellOf(it, a)).filter(Boolean), total = (it.cols || 0) * (it.rows || 0);
+      const krit = vals.filter((c) => ["kritik", "bitti"].includes(durumOf(c))).length;
+      g += `<text x="${cx}" y="${cy}" font-size="${fs}" fill="#fff" text-anchor="middle" dominant-baseline="central" font-family="var(--font-display)" font-weight="700" ${vertical ? `transform="rotate(-90 ${cx} ${cy})"` : ""}>${esc(it.name)}${total ? ` · ${vals.length}/${total}` : ""}</text>`;
+      // hammadde rafı: sütun çizgileri, sütun numaraları ve her sütunun doluluğu (3 kat)
+      if (HM && it.cols > 1) {
+        const yatay = w >= d, adim = (yatay ? w : d) / it.cols;
+        let ek = '<g pointer-events="none">';
+        for (let i = 1; i < it.cols; i++) ek += yatay ? `<line x1="${r.x1 + i * adim}" y1="${r.y1}" x2="${r.x1 + i * adim}" y2="${r.y2}" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>` : `<line x1="${r.x1}" y1="${r.y1 + i * adim}" x2="${r.x2}" y2="${r.y1 + i * adim}" stroke="#fff" stroke-opacity=".35" stroke-width="1.5"/>`;
+        for (let i = 0; i < it.cols; i++) {
+          const kat = [...Array(it.rows)].map((_, k) => cellOf(it, cellAddr(it, i, k)));
+          const kotu = kat.some((c) => c && ["kritik", "bitti"].includes(durumOf(c))), dolu = kat.filter(Boolean).length;
+          const px = yatay ? r.x1 + (i + 0.5) * adim : r.x1 + w / 2, py = yatay ? r.y2 - 16 : r.y1 + (i + 0.5) * adim;
+          ek += `<text x="${px}" y="${py}" font-size="13" text-anchor="middle" dominant-baseline="central" fill="#fff" font-family="var(--font-code)" font-weight="600">${pad2(i + 1)}</text>`;
+          ek += `<text x="${px}" y="${yatay ? r.y1 + 18 : py + 14}" font-size="11" text-anchor="middle" fill="${kotu ? "#ffd2c2" : "#dbe5ff"}" font-family="var(--font-code)">${dolu}/${it.rows}${kotu ? " !" : ""}</text>`;
+        }
+        g += ek + "</g>";
+      }
+      if (krit) g += `<g pointer-events="none"><circle cx="${r.x1 + 12}" cy="${r.y1 + 12}" r="11" fill="${DURUM.kritik.renk}"/><text x="${r.x1 + 12}" y="${r.y1 + 12}" font-size="12" fill="#fff" text-anchor="middle" dominant-baseline="central" font-family="var(--font-code)">${krit}</text></g>`;
+    } else if (it.type === "koli") {
+      g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="var(--box)" stroke="${stroke || "var(--box-edge)"}" stroke-width="${stroke ? 3 : 1.2}"/>`;
+      g += `<line x1="${r.x1}" y1="${cy}" x2="${r.x2}" y2="${cy}" stroke="var(--box-edge)" stroke-width="1" opacity=".6"/>`;
+      g += `<text x="${cx}" y="${cy}" font-size="13" fill="#2b1d0c" text-anchor="middle" dominant-baseline="central" font-family="var(--font-code)">×${it.stack || 1}</text>`;
+    } else if (it.type === "kova") {
+      // dolap üstündeki kovada yalnız iç daire tutulur; çevresi alttaki dolabı tutmaya kalsın
+      const kr = Math.min(w, d) / 2;
+      g += `<circle cx="${cx}" cy="${cy}" r="${kr}" fill="#e0405033" stroke="${stroke || "#e04050"}" stroke-width="${stroke ? 3 : 2}" ${it.z > 0 ? 'pointer-events="none"' : ""}/>`;
+      if (it.z > 0) g += `<circle cx="${cx}" cy="${cy}" r="${kr * 0.5}" fill="#e04050" opacity=".55"/>`;
+    } else if (it.type === "bant") {
+      const k = kolisIn(it).reduce((a, b) => a + (b.stack || 1), 0);
+      g += `<rect x="${r.x1 + 2.5}" y="${r.y1 + 2.5}" width="${Math.max(0, w - 5)}" height="${Math.max(0, d - 5)}" fill="color-mix(in srgb, var(--tape) 10%, transparent)" stroke="var(--tape)" stroke-width="5"/>`;
+      if (isSel || isBad) g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="none" stroke="${stroke}" stroke-width="2" stroke-dasharray="8 6"/>`;
+      g += `<text x="${r.x1 + 8}" y="${r.y1 + 20}" font-size="16" fill="var(--fg)" font-family="var(--font-display)" font-weight="700">${esc(it.name)}${k ? ` · ${k} koli` : ""}</text>`;
+    } else if (it.type === "kapi") {
+      g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="var(--ok)" stroke="${stroke || "none"}" stroke-width="2"/>`;
+      g += `<text x="${cx}" y="${r.y1 - 8}" font-size="13" fill="var(--ok)" text-anchor="middle" font-family="var(--font-body)" font-weight="600">${esc(it.name)}</text>`;
+    } else {
+      const fill = it.type === "engel" ? "url(#hatch)" : it.type === "tezgah" ? "#e6e9ed" : "#c3cbd4";
+      g += `<rect x="${r.x1}" y="${r.y1}" width="${w}" height="${d}" fill="${fill}" stroke="${stroke || "var(--wall)"}" stroke-width="${stroke ? 3 : 1}"/>`;
+      g += `<text x="${cx}" y="${cy}" font-size="${Math.max(10, Math.min(14, Math.min(w, d) * 0.4))}" fill="${it.type === "engel" ? "var(--fg)" : "#26303b"}" text-anchor="middle" dominant-baseline="central" font-family="var(--font-body)" font-weight="600" ${d > w * 1.5 ? `transform="rotate(-90 ${cx} ${cy})"` : ""}>${esc(it.name)}</text>`;
+    }
+    if (it.z > 0 && it.type !== "kova") g += `<g pointer-events="none"><rect x="${r.x2 - 34}" y="${r.y1 - 9}" width="38" height="16" rx="3" fill="var(--tape)"/><text x="${r.x2 - 15}" y="${r.y1}" font-size="11" text-anchor="middle" dominant-baseline="central" fill="#1b1b1b" font-family="var(--font-code)">↑${Math.round(it.z)}</text></g>`;
+    g += `</g>`;
+    s += g;
+  }
+  // seçilinin çevresindeki boşluk ölçüleri
+  const it = cur.items.find((i) => i.id === sel);
+  if (it && isSolid(it)) {
+    const r = rect(it), g = gapsOf(it), cx = (r.x1 + r.x2) / 2, cy = (r.y1 + r.y2) / 2;
+    const dim = (x1, y1, x2, y2, v) => {
+      if (v <= 0) return "";
+      const col = v < 60 ? "var(--bad)" : "var(--muted)", mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="${mx - 22}" y="${my - 10}" width="44" height="20" rx="4" fill="var(--panel)" stroke="${col}"/>
+        <text x="${mx}" y="${my + 1}" font-size="12" text-anchor="middle" dominant-baseline="central" fill="${col}" font-family="var(--font-code)">${Math.round(v)}</text>`;
+    };
+    s += `<g pointer-events="none">${dim(r.x1, cy, r.x1 - g.sol, cy, g.sol)}${dim(r.x2, cy, r.x2 + g.sag, cy, g.sag)}${dim(cx, r.y1, cx, r.y1 - g.ust, g.ust)}${dim(cx, r.y2, cx, r.y2 + g.alt, g.alt)}</g>`;
+  }
+  // ölçü çizgileri (cetvel)
+  const olcCizgi = (m, i) => {
+    const dx = m.b.x - m.a.x, dy = m.b.y - m.a.y, L = Math.hypot(dx, dy); if (L < 1) return "";
+    const nx = (-dy / L) * 7, ny = (dx / L) * 7, mx = (m.a.x + m.b.x) / 2, my = (m.a.y + m.b.y) / 2;
+    const yazi = `${Math.round(L)} cm` + (Math.abs(dx) > 2 && Math.abs(dy) > 2 ? ` (↔${Math.round(Math.abs(dx))} ↕${Math.round(Math.abs(dy))})` : "");
+    const gw = yazi.length * 7 + 12;
+    return `<g${i != null ? ` data-olc="${i}" style="cursor:pointer"` : ""}>
+      <line x1="${m.a.x}" y1="${m.a.y}" x2="${m.b.x}" y2="${m.b.y}" stroke="var(--tape)" stroke-width="2.5"/>
+      <line x1="${m.a.x - nx}" y1="${m.a.y - ny}" x2="${m.a.x + nx}" y2="${m.a.y + ny}" stroke="var(--tape)" stroke-width="2.5"/>
+      <line x1="${m.b.x - nx}" y1="${m.b.y - ny}" x2="${m.b.x + nx}" y2="${m.b.y + ny}" stroke="var(--tape)" stroke-width="2.5"/>
+      <rect x="${mx - gw / 2}" y="${my - 11}" width="${gw}" height="22" rx="4" fill="var(--tape)"/>
+      <text x="${mx}" y="${my + 1}" font-size="13" text-anchor="middle" dominant-baseline="central" fill="#1b1b1b" font-family="var(--font-code)" font-weight="600">${yazi}</text></g>`;
+  };
+  s += olculer.map((m, i) => olcCizgi(m, i)).join("") + (olcCiz ? olcCizgi(olcCiz, null) : "");
+  svg.innerHTML = s;
+}
+
+/* ölçü aracı: sürükleyerek iki nokta arası; nesne kenarlarına ve duvarlara yapışır, Shift ile yatay/dikey */
+let olcMod = false, olcCiz = null, olculer = [];
+function olcYapis(p) {
+  const xs = [0, cur.room.w], ys = [0, cur.room.h];
+  cur.items.forEach((it) => { const r = rect(it); xs.push(r.x1, r.x2); ys.push(r.y1, r.y2); });
+  const yak = (v, arr) => { let best = null, bd = 9; arr.forEach((a) => { const d = Math.abs(a - v); if (d < bd) { bd = d; best = a; } }); return best ?? Math.round(v / 5) * 5; };
+  return { x: yak(p.x, xs), y: yak(p.y, ys) };
+}
+function olcGuncelle() {
+  $("bOlc").classList.toggle("on", olcMod); $("bOlc").setAttribute("aria-pressed", olcMod);
+  $("bOlcSil").hidden = !olculer.length && !olc3.length; svg.style.cursor = olcMod ? "crosshair" : "";
+  if (three) three.renderer.domElement.style.cursor = olcMod ? "crosshair" : "";
+  lejantYaz();
+  if (!olcMod) { olc3Bas = null; olc3Onizle = null; }
+  olc3Ciz();
+}
+$("bOlc").addEventListener("click", () => { olcMod = !olcMod; olcGuncelle(); renderPlan(); });
+$("bOlcSil").addEventListener("click", () => { olculer = []; olc3 = []; olc3Bas = null; olc3Onizle = null; olcGuncelle(); renderPlan(); });
+
+/* 3D ölçü: iki noktaya tıkla (dolap köşesi, kova, zemin, duvar); arada sürükleyip görünümü çevirebilirsin */
+let olc3 = [], olc3Bas = null, olc3Onizle = null, olcDown = null;
+function olc3Nokta(e) {
+  if (!three) return null;
+  const b = three.renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1), three.camera);
+  const h = ray.intersectObjects(three.world.children, true).find((x) => x.object.isMesh && x.object.visible && !x.object.userData.olc);
+  if (!h) return null;
+  // 1 cm'e yuvarla; zemine çok yakınsa tam zemine otur
+  const p = h.point.clone(); p.x = Math.round(p.x * 100) / 100; p.z = Math.round(p.z * 100) / 100; p.y = p.y < 0.015 ? 0 : Math.round(p.y * 100) / 100;
+  return p;
+}
+function olc3Etiket(text) {
+  const c = document.createElement("canvas"), ctx = c.getContext("2d"); c.width = 512; c.height = 96;
+  ctx.font = "700 44px 'JetBrains Mono', Consolas, monospace"; const w = Math.min(500, ctx.measureText(text).width + 36);
+  ctx.fillStyle = "#f2c400"; ctx.beginPath(); ctx.roundRect ? ctx.roundRect((512 - w) / 2, 10, w, 76, 12) : ctx.rect((512 - w) / 2, 10, w, 76); ctx.fill();
+  ctx.fillStyle = "#1b1b1b"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, 256, 50);
+  // uzaklıktan bağımsız sabit ekran boyu: uzaktan bakınca da okunur
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, sizeAttenuation: false }));
+  sp.scale.set(0.27, 0.05, 1); sp.renderOrder = 20; sp.userData.olc = true; return sp;
+}
+function olc3Ciz() {
+  if (!three) return;
+  const eski = three.world.getObjectByName("olcler"); if (eski) { three.world.remove(eski); eski.traverse((n) => { n.geometry?.dispose(); n.material?.map?.dispose(); n.material?.dispose?.(); }); }
+  if (view === "2d") return;
+  const g = new THREE.Group(); g.name = "olcler"; g.userData.olc = true;
+  const lm = new THREE.LineBasicMaterial({ color: 0xf2c400, depthTest: false }), nm = new THREE.MeshBasicMaterial({ color: 0xf2c400, depthTest: false });
+  const nokta = (p) => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 8), nm); s.position.copy(p); s.renderOrder = 19; s.userData.olc = true; g.add(s); };
+  const cizgi = (a, b, kesik) => {
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), kesik ? new THREE.LineDashedMaterial({ color: 0xf2c400, dashSize: 0.05, gapSize: 0.04, depthTest: false }) : lm);
+    if (kesik) l.computeLineDistances(); l.renderOrder = 19; l.userData.olc = true; g.add(l);
+    nokta(a); nokta(b);
+    const L = a.distanceTo(b) * 100, yatay = Math.hypot(b.x - a.x, b.z - a.z) * 100, dikey = Math.abs(b.y - a.y) * 100;
+    const yazi = `${Math.round(L)} cm` + (yatay > 2 && dikey > 2 ? `  ↔${Math.round(yatay)} ↕${Math.round(dikey)}` : "");
+    const et = olc3Etiket(yazi); et.position.copy(a).add(b).multiplyScalar(0.5); et.position.y += 0.12; g.add(et);
+    if (!kesik) $("stage").dataset.olcSon = yazi;
+  };
+  olc3.forEach((m) => cizgi(new THREE.Vector3(m.a.x, m.a.y, m.a.z), new THREE.Vector3(m.b.x, m.b.y, m.b.z)));
+  if (olc3Bas) { nokta(new THREE.Vector3(olc3Bas.x, olc3Bas.y, olc3Bas.z)); if (olc3Onizle) cizgi(new THREE.Vector3(olc3Bas.x, olc3Bas.y, olc3Bas.z), olc3Onizle, true); }
+  three.world.add(g);
+}
+function lejantYaz() {
+  if (!$("legend3d")) return;
+  $("legend3d").textContent = olcMod && view !== "2d"
+    ? (olc3Bas ? "Ölç: ikinci noktaya tıklayın · Esc: vazgeç" : "Ölç: ilk noktaya tıklayın · sürükleyerek görünümü çevirebilirsiniz · Ölç'e tekrar basınca kapanır")
+    : view === "fp"
+      ? "↑ ↓ yürü · ← → dön · boş yeri sürükle: etrafa bak · tekerlek: görüş açısı · nesneyi sürükle: taşı · Shift + ok: seçiliyi baktığın yöne it"
+      : "Nesneyi sürükle: taşı · boş yeri sürükle: döndür · tekerlek: yakınlaştır";
+}
+
+/* sürükleme */
+function svgPt(e) { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+svg.addEventListener("pointerdown", (e) => {
+  if (!cur) return;
+  if (olcMod) {
+    e.preventDefault();
+    const sil = e.target.closest("[data-olc]");  // ölçünün üstüne tıklamak onu siler
+    if (sil) { olculer.splice(+sil.dataset.olc, 1); olcGuncelle(); renderPlan(); return; }
+    const p = olcYapis(svgPt(e)); olcCiz = { a: p, b: p };
+    try { svg.setPointerCapture(e.pointerId); } catch {}
+    renderPlan(); return;
+  }
+  const g = e.target.closest("[data-id]");
+  if (!g) { if (sel) { sel = null; selCell = null; renderAll(false); } return; }
+  const it = cur.items.find((i) => i.id === g.dataset.id); if (!it) return;
+  if (sel !== it.id) { sel = it.id; selCell = null; }
+  const p = svgPt(e);
+  if (kilit) { renderPlan(); renderProps(); return; }  // kilitliyken yalnız seçilir
+  dragging = { id: it.id, dx: p.x - it.x, dy: p.y - it.y, before: JSON.stringify(cur), moved: false, riders: ridersOf(it) };
+  try { svg.setPointerCapture(e.pointerId); } catch {}
+  e.preventDefault();
+  renderPlan(); renderProps();
+});
+// pencere düzeyinde dinle: imleç plandan taşsa da sürükleme kopmasın
+window.addEventListener("pointermove", (e) => {
+  if (olcCiz) {
+    let b = olcYapis(svgPt(e));
+    if (e.shiftKey) { if (Math.abs(b.x - olcCiz.a.x) > Math.abs(b.y - olcCiz.a.y)) b.y = olcCiz.a.y; else b.x = olcCiz.a.x; }
+    olcCiz.b = b; renderPlan(); return;
+  }
+  if (!dragging || dragging.mode === "3d") return;
+  const it = cur.items.find((i) => i.id === dragging.id); if (!it) return;
+  const p = svgPt(e), f = fp(it);
+  let nx = snap(p.x - dragging.dx), ny = snap(p.y - dragging.dy);
+  nx = Math.max(-f.w / 2, Math.min(cur.room.w - f.w / 2, nx)); ny = Math.max(-f.d / 2, Math.min(cur.room.h - f.d / 2, ny));
+  if (nx !== it.x || ny !== it.y) { moveBy(it, nx - it.x, ny - it.y, dragging.riders); dragging.moved = true; renderPlan(); renderStats(); }
+});
+const endDrag = () => {
+  if (three) three.controls.enabled = view === "3d";
+  look = null;
+  if (olcCiz) { if (Math.hypot(olcCiz.b.x - olcCiz.a.x, olcCiz.b.y - olcCiz.a.y) >= 5) olculer.push(olcCiz); olcCiz = null; olcGuncelle(); renderPlan(); return; }
+  if (!dragging) return;
+  if (dragging.moved) {
+    const it = cur.items.find((i) => i.id === dragging.id); if (it) settle(it, dragging.riders);
+    undoStack.push(dragging.before); redoStack = []; dragging = null; afterEdit(true);
+  }
+  else dragging = null;
+};
+window.addEventListener("pointerup", endDrag);
+window.addEventListener("pointercancel", endDrag);
+svg.addEventListener("dragstart", (e) => e.preventDefault());
+
+/* ---------- işlemler ---------- */
+function getSel() { return cur && cur.items.find((i) => i.id === sel); }
+/* taşıma kilidi: açıkken nesneler seçilir, stok işlenir ama yeri / yönü değişmez (tercih bu tarayıcıda hatırlanır) */
+let kilit = (() => { try { return localStorage.getItem(LS_KEY + "-kilit") === "1"; } catch { return false; } })();
+function kilitUyar() { if (!kilit) return false; setSave("Taşıma kilitli — açmak için kilit düğmesine basın", true); setTimeout(() => setSave(mode === "local" ? "Bu tarayıcıda kayıtlı" : "Kaydedildi"), 2500); return true; }
+function kilitCiz() { const b = $("bKilit"); b.classList.toggle("lock", kilit); b.textContent = kilit ? "🔒 Taşıma kilitli" : "🔓 Taşımayı kilitle"; b.setAttribute("aria-pressed", kilit); }
+$("bKilit").addEventListener("click", () => { kilit = !kilit; try { localStorage.setItem(LS_KEY + "-kilit", kilit ? "1" : "0"); } catch {} kilitCiz(); renderProps(); });
+kilitCiz();
+function rotateSel() {
+  if (kilitUyar()) return;
+  const it = getSel(); if (!it) return; pushUndo();
+  const f = fp(it), cx = it.x + f.w / 2, cy = it.y + f.d / 2;
+  it.rot = (it.rot + 90) % 360; const n = fp(it);
+  it.x = snap(cx - n.w / 2, 5); it.y = snap(cy - n.d / 2, 5);
+  afterEdit(true);
+}
+function delSel() {
+  const it = getSel(); if (!it) return; pushUndo();
+  const top = ridersOf(it);
+  cur.items = cur.items.filter((i) => i !== it);
+  top.sort((a, b) => (a.z || 0) - (b.z || 0)).forEach((r) => settle(r, ridersOf(r)));  // üstündekiler aşağı iner
+  sel = null; afterEdit(true);
+}
+function dupSel() {
+  const it = getSel(); if (!it) return; pushUndo();
+  const c = clone(it); c.id = "i" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  if (["dolap", "bant"].includes(c.type)) c.name = nextName(c.type);
+  if (c.type === "dolap") c.cells = {};
+  const f = fp(it); const right = it.x + f.w * 2 <= cur.room.w;
+  c.x = right ? it.x + f.w : it.x; c.y = right ? it.y : Math.min(cur.room.h - f.d, it.y + f.d);
+  cur.items.push(c); settle(c); sel = c.id; afterEdit(true);
+}
+let mvStep = 10;
+function nudge(dx, dy) { if (kilitUyar()) return; const it = getSel(); if (!it) return; pushUndo(); const rd = ridersOf(it); moveBy(it, dx, dy, rd); settle(it, rd); afterEdit(true); }
+
+document.addEventListener("keydown", (e) => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y" && !typing) { e.preventDefault(); redo(); return; }
+  // Esc: önce yarım kalan ölçüyü bırakır, sonra ölçü modunu kapatır
+  if (e.key === "Escape" && !typing && olcMod) { if (olc3Bas) { olc3Bas = null; olc3Onizle = null; } else olcMod = false; olcGuncelle(); renderPlan(); return; }
+  // içeride gezerken: oklar/WASD yürür ve döner; Shift + ok seçili nesneyi baktığın yöne göre iter
+  const walkKey = WALK[e.key] || WALK[e.key.toLowerCase()];
+  if (view === "fp" && !typing && walkKey) {
+    e.preventDefault();
+    if (e.shiftKey && sel) {
+      if (e.repeat) return;
+      const f = { x: -Math.sin(player.yaw), y: -Math.cos(player.yaw) }, r = { x: -f.y, y: f.x };
+      const v = { ileri: f, geri: { x: -f.x, y: -f.y }, sag: r, sol: { x: -r.x, y: -r.y } }[walkKey];
+      const ax = Math.abs(v.x) > Math.abs(v.y) ? [Math.sign(v.x) * mvStep, 0] : [0, Math.sign(v.y) * mvStep];
+      nudge(ax[0], ax[1]);
+    } else held.add(walkKey);
+    return;
+  }
+  if (typing || !sel) return;
+  const st = e.shiftKey ? 1 : GRID;
+  if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); delSel(); }
+  else if (e.key.toLowerCase() === "r" && !e.ctrlKey) rotateSel();
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") { e.preventDefault(); dupSel(); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); nudge(-st, 0); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); nudge(st, 0); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); nudge(0, -st); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); nudge(0, st); }
+  else if (e.key === "Escape") { if (olc3Bas) { olc3Bas = null; olc3Onizle = null; olcGuncelle(); return; } sel = null; olcMod = false; olcGuncelle(); renderAll(false); }
+});
+
+document.addEventListener("keyup", (e) => { const k = WALK[e.key] || WALK[e.key.toLowerCase()]; if (k) held.delete(k); });
+window.addEventListener("blur", () => held.clear());
+
+/* ---------- içeride gezme (göz hizası) ---------- */
+const WALK = { ArrowUp: "ileri", ArrowDown: "geri", ArrowLeft: "sol", ArrowRight: "sag", w: "ileri", s: "geri", a: "sol", d: "sag" };
+const held = new Set();
+const player = { x: 200, y: 700, yaw: 0, pitch: -0.12 };
+let look = null, lastT = 0, orbitSaved = null, fpFov = 70, fovTimer = 0;
+function showFov() {
+  const el = $("fovTag"); el.textContent = `Görüş açısı ${Math.round(fpFov)}°`; el.hidden = false;
+  clearTimeout(fovTimer); fovTimer = setTimeout(() => (el.hidden = true), 1200);
+}
+const EYE = 160, BODY = 20;  // göz yüksekliği ve gövde yarıçapı (cm)
+function blocked(x, y) {
+  if (x < BODY || y < BODY || x > cur.room.w - BODY || y > cur.room.h - BODY) return true;
+  // yalnız yürüme hizasındaki nesneler engel; dolap üstündeki kova engel değil
+  return cur.items.some((o) => isSolid(o) && (o.z || 0) < EYE && (() => { const r = rect(o); return x > r.x1 - BODY && x < r.x2 + BODY && y > r.y1 - BODY && y < r.y2 + BODY; })());
+}
+function placePlayer() {
+  const door = cur.items.find((i) => i.type === "kapi" && /giri/i.test(i.name)) || cur.items.find((i) => i.type === "kapi");
+  if (door) {
+    const r = rect(door), cx = (r.x1 + r.x2) / 2, cy = (r.y1 + r.y2) / 2;
+    // kapı hangi duvara en yakınsa oradan içeri bak (üst, alt, sol, sağ duvar)
+    const dist = [cy, cur.room.h - cy, cx, cur.room.w - cx], k = dist.indexOf(Math.min(...dist));
+    player.yaw = [Math.PI, 0, -Math.PI / 2, Math.PI / 2][k];
+    const fx = -Math.sin(player.yaw), fy = -Math.cos(player.yaw);
+    // kapıdan içeri doğru ilk boş noktaya yerleş
+    player.x = cx + fx * 40; player.y = cy + fy * 40;
+    for (let t = 40; t < 400; t += 10) { const x = cx + fx * t, y = cy + fy * t; if (!blocked(x, y)) { player.x = x; player.y = y; break; } }
+  } else { player.x = cur.room.w / 2; player.y = cur.room.h / 2; player.yaw = 0; }
+  player.pitch = -0.12;
+}
+// aranan bölmenin önüne git ve ona bak (içeride gezerken arama sonucuna tıklanınca)
+function yuruBolmeye(d, a) {
+  const k = ((d.rot || 0) / 90) % 4, rot = (v) => { for (let i = 0; i < k; i++) v = { x: -v.y, y: v.x }; return v; };
+  const ax = rot({ x: 1, y: 0 }), front = rot({ x: 0, y: 1 }), f = fp(d);
+  const col = addrParse(a).c, off = -d.w / 2 + (col + 0.5) * (d.w / d.cols);
+  const cx = d.x + f.w / 2 + ax.x * off, cy = d.y + f.d / 2 + ax.y * off;
+  let dist = d.d / 2 + 70;
+  for (; dist > d.d / 2 + 25; dist -= 5) { player.x = cx + front.x * dist; player.y = cy + front.y * dist; if (!blocked(player.x, player.y)) break; }
+  player.yaw = Math.atan2(front.x, front.y);  // ileri yönü dolaba bakar
+  const row = addrParse(a).r, cellY = (d.z || 0) + d.h - (row + 0.5) * ((d.h - 6) / d.rows);
+  player.pitch = Math.max(-0.9, Math.min(0.8, Math.atan2(cellY - EYE, dist - d.d / 2 + 20)));  // dar koridorda da bölme kadrajda kalsın
+}
+function stepPlayer(dt) {
+  const turn = 1.6 * dt, speed = 140 * dt;  // rad/sn, cm/sn
+  if (held.has("sol")) player.yaw += turn;
+  if (held.has("sag")) player.yaw -= turn;
+  let mv = 0; if (held.has("ileri")) mv += speed; if (held.has("geri")) mv -= speed;
+  if (mv) {
+    const nx = player.x - Math.sin(player.yaw) * mv, ny = player.y - Math.cos(player.yaw) * mv;
+    const stuck = blocked(player.x, player.y);  // içinde başladıysa çıkabilsin
+    if (stuck || !blocked(nx, ny)) { player.x = nx; player.y = ny; }
+    else { if (!blocked(nx, player.y)) player.x = nx; else if (!blocked(player.x, ny)) player.y = ny; }  // duvar boyunca kay
+  }
+  const c = three.camera;
+  c.rotation.order = "YXZ"; c.rotation.set(player.pitch, player.yaw, 0);
+  c.position.set(player.x * 0.01, EYE * 0.01, player.y * 0.01);
+}
+$("pad").addEventListener("pointerdown", (e) => { const b = e.target.closest("[data-k]"); if (!b) return; e.preventDefault(); held.add(WALK[b.dataset.k]); b.classList.add("on"); try { b.setPointerCapture(e.pointerId); } catch {} });
+["pointerup", "pointercancel", "pointerleave"].forEach((t) => $("pad").addEventListener(t, (e) => { const b = e.target.closest("[data-k]"); if (!b) return; held.delete(WALK[b.dataset.k]); b.classList.remove("on"); }));
+
+/* ---------- özellik paneli ---------- */
+function renderProps() {
+  const p = $("props");
+  if (!cur) { p.innerHTML = `<h2>Özellikler</h2><p class="hint">Önce bir yerleşim açın.</p>`; return; }
+  const krN = tumBolmeler().filter((b) => ["kritik", "bitti"].includes(durumOf(b.c))).length;
+  const tabs = `<div class="tabs"><button class="tab${panel === "nesne" ? " on" : ""}" data-tab="nesne">Nesne</button><button class="tab${panel === "stok" ? " on" : ""}" data-tab="stok">Stok${krN ? ` <span class="badge">${krN}</span>` : ""}</button></div>`;
+  const bindTabs = () => p.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { panel = b.dataset.tab; renderProps(); }));
+  if (panel === "stok") { renderStok(p, tabs); bindTabs(); return; }
+  const it = getSel();
+  if (!it) {
+    const zones = cur.items.filter((i) => i.type === "bant");
+    p.innerHTML = `${tabs}<h2>Özellikler</h2>
+      <p class="hint" style="margin-top:0">Plandan bir nesneye dokunun; ölçüsünü, yönünü ve içeriğini buradan değiştirin. Seçili nesnenin dört yanındaki boşluk cm olarak planda görünür; 60 cm'nin altı kırmızıdır.</p>
+      <h2 style="margin-top:14px">Bant alanları</h2>
+      <div class="gaps">${zones.length ? zones.map((z) => { const k = kolisIn(z); return `<div><b>${esc(z.name)}</b> · ${k.length} yığın, ${k.reduce((a, b) => a + (b.stack || 1), 0)} koli${z.note ? ` · ${esc(z.note)}` : ""}</div>`; }).join("") : "Henüz bant alanı yok."}</div>`;
+    bindTabs();
+    return;
+  }
+  const t = it.type, isD = t === "dolap";
+  const g = isSolid(it) ? gapsOf(it) : null;
+  const gl = (k, v) => `<span class="${v < 60 ? "bad" : ""}">${k} ${Math.round(v)} cm</span>`;
+  let h = `${tabs}<div class="stack">
+    <div><span class="typetag">${TYPES[t].label}</span></div>
+    <label>${isD ? "Dolap kodu" : t === "bant" ? "Alan kodu" : "Ad"}<input id="pName" value="${esc(it.name)}"></label>
+    <div class="${TYPES[t].h ? "grid3" : "grid2"}">
+      <label>${isD || t === "tezgah" ? "Uzunluk" : "En"} (cm)<input id="pW" type="number" min="5" step="5" value="${it.w}"></label>
+      <label>Derinlik (cm)<input id="pD" type="number" min="5" step="5" value="${it.d}"></label>
+      ${TYPES[t].h ? `<label>${t === "koli" ? "Koli boyu" : "Yükseklik"} (cm)<input id="pH" type="number" min="5" step="5" value="${it.h}"></label>` : ""}
+    </div>
+    <div class="${isSolid(it) ? "grid2" : "grid3"}">
+      <label>X (cm)<input id="pX" type="number" step="10" value="${it.x}"${kilit ? " disabled" : ""}></label>
+      <label>Y (cm)<input id="pY" type="number" step="10" value="${it.y}"${kilit ? " disabled" : ""}></label>
+      ${isSolid(it) ? `<label title="Bir nesnenin üstüne bırakınca kendiliğinden dolar">Zeminden (cm)<input id="pZ" type="number" min="0" step="10" value="${Math.round(it.z || 0)}"${kilit ? " disabled" : ""}></label>` : ""}
+      <label>Yön<select id="pRot"${kilit ? " disabled" : ""}>${[0, 90, 180, 270].map((r) => `<option value="${r}"${r === it.rot ? " selected" : ""}>${isD ? { 0: "Ön aşağı", 90: "Ön sola", 180: "Ön yukarı", 270: "Ön sağa" }[r] : r + "°"}</option>`).join("")}</select></label>
+    </div>`;
+  if (isD) h += `<div class="grid2">
+      <label>Sütun<input id="pCols" type="number" min="1" max="12" value="${it.cols}"></label>
+      <label>Kat<input id="pRows" type="number" min="1" max="12" value="${it.rows}"></label>
+    </div>
+    <div class="acts"><button class="btn" id="aKova">+ Üstüne kova koy</button><span class="gaps">Üstünde ${ridersOf(it).filter((r) => r.type === "kova").length} kova</span></div>`;
+  if (t === "koli") h += `<label>Üst üste koli sayısı<input id="pStack" type="number" min="1" max="12" value="${it.stack || 1}"></label>`;
+  h += `<label>Not<input id="pNote" value="${esc(it.note || "")}" placeholder="ör. Anamas yay, M030 serisi"></label>`;
+  if (it.z > 0) { const on = cur.items.filter((o) => o !== it && isSolid(o) && centerIn(it, o) && Math.abs(topOf(o) - it.z) < 1).map((o) => o.name); h += `<div class="gaps">Üstünde durduğu: <b>${esc(on.join(", ") || "—")}</b> · zeminden ${Math.round(it.z)} cm</div>`; }
+  { const rd = isSolid(it) ? ridersOf(it) : []; if (rd.length) h += `<div class="gaps">Üstünde: ${rd.length} nesne (birlikte taşınır)</div>`; }
+  // komşulara mesafe: yazınca nesne o mesafeye kayar (üstündekiler de birlikte)
+  if (g) h += `<div><h2 style="margin:4px 0 6px">Komşulara mesafe (cm)</h2><div class="mesafe">${[["sol", "← Sol"], ["sag", "Sağ →"], ["ust", "↑ Üst"], ["alt", "↓ Alt"]].map(([k, t]) => `<label class="${g[k] < 60 ? "dar" : ""}">${t} · <span class="muted">${esc(g.ad[k])}</span><input type="number" min="0" step="5" data-gap="${k}" value="${Math.round(g[k])}"${kilit ? " disabled" : ""}></label>`).join("")}</div>
+    <p class="hint" style="margin:4px 0 0">Sayıyı değiştirip Enter'a basın; nesne o mesafeye gelir. 60 cm'nin altı kırmızı.</p></div>`;
+  if (t === "bant") { const k = kolisIn(it); h += `<div class="gaps">İçinde ${k.length} yığın, ${k.reduce((a, b) => a + (b.stack || 1), 0)} koli · alan ${((it.w * it.d) / 10000).toFixed(2)} m²</div>`; }
+  if (kilit) h += `<div class="gaps">🔒 Taşıma kilitli: yer ve yön değiştirilemez. Açmak için plan üstündeki kilit düğmesine basın.</div>`;
+  else h += `<div><h2 style="margin:4px 0 6px">Taşı</h2><div class="mover">
+      <span></span><button class="btn" data-mv="0,-1" aria-label="Yukarı taşı">↑</button><span></span>
+      <button class="btn" data-mv="-1,0" aria-label="Sola taşı">←</button>
+      <select id="mvStep" aria-label="Adım"><option value="10">10 cm</option><option value="50">50 cm</option><option value="100">1 m</option><option value="1">1 cm</option></select>
+      <button class="btn" data-mv="1,0" aria-label="Sağa taşı">→</button>
+      <span></span><button class="btn" data-mv="0,1" aria-label="Aşağı taşı">↓</button><span></span>
+    </div></div>`;
+  h += `<div class="acts"><button class="btn" id="aRot"${kilit ? " disabled" : ""}>↻ Döndür</button><button class="btn" id="aDup">Çoğalt</button><button class="btn danger" id="aDel">Sil</button></div>`;
+  if (isD) {
+    h += `<div><h2 style="margin:6px 0 6px">Bölmeler · ön görünüş</h2><div style="overflow-x:auto"><div class="cells" style="grid-template-columns:repeat(${it.cols},${HM ? "54px" : "1fr"})">`;
+    for (let r = 0; r < it.rows; r++) for (let c = 0; c < it.cols; c++) {
+      const a = cellAddr(it, c, r), v = cellOf(it, a), du = durumOf(v);
+      h += `<button class="cell${v ? " full" : ""}${selCell === a ? " sel" : ""}" data-cell="${a}" style="${v ? `border-left:4px solid ${DURUM[du].renk}` : ""}" title="${esc(a + (v ? `: ${v.kod || ""} ${v.ad || ""} · ${fmtN(v.miktar)} ${BIRIM}` : " · boş"))}">${esc(v ? (v.kod || v.ad || a.split("-")[1]) : a.split("-")[1])}</button>`;
+    }
+    h += `</div></div></div>`;
+    if (selCell) h += cellForm(it, selCell);
+    else h += `<p class="hint" style="margin:0">Bir bölmeye dokunun: içeriği, miktarı ve alma/koyma kaydı açılır. Sol kenardaki renk stok durumunu gösterir.</p>`;
+  }
+  h += `</div>`;
+  p.innerHTML = h;
+  if (isD && selCell) bindCellForm(it, selCell);
+  bindTabs();
+
+  const bind = (id, fn) => { const el = $(id); if (!el) return; el.addEventListener("focus", () => pushUndo(), { once: true }); el.addEventListener("input", () => { fn(el.value); scheduleSave(); renderPlan(); renderStats(); if (view !== "2d") build3d(); }); };
+  const num = (v, min = 0) => Math.max(min, Math.round(Number(v) || 0));
+  bind("pName", (v) => (it.name = v));
+  bind("pW", (v) => (it.w = num(v, 5)));
+  bind("pD", (v) => (it.d = num(v, 5)));
+  bind("pH", (v) => (it.h = num(v, 1)));
+  bind("pX", (v) => { const rd = ridersOf(it); moveBy(it, Math.round(Number(v) || 0) - it.x, 0, rd); settle(it, rd); });
+  bind("pY", (v) => { const rd = ridersOf(it); moveBy(it, 0, Math.round(Number(v) || 0) - it.y, rd); settle(it, rd); });
+  bind("pZ", (v) => { const rd = ridersOf(it), nz = Math.max(0, Math.round(Number(v) || 0)), dz = nz - (it.z || 0); it.z = nz; rd.forEach((r) => (r.z = (r.z || 0) + dz)); });
+  bind("pCols", (v) => (it.cols = Math.min(12, num(v, 1))));
+  bind("pRows", (v) => (it.rows = Math.min(12, num(v, 1))));
+  $("aKova")?.addEventListener("click", () => { pushUndo(); addKovaOn(it); afterEdit(true); });
+  bind("pStack", (v) => (it.stack = Math.min(12, num(v, 1))));
+  bind("pNote", (v) => (it.note = v));
+  ["pCols", "pRows", "pName", "pW", "pD", "pH"].forEach((id) => $(id)?.addEventListener("change", () => renderProps()));
+  $("pRot").addEventListener("change", (e) => {
+    pushUndo(); const f = fp(it), cx = it.x + f.w / 2, cy = it.y + f.d / 2;
+    it.rot = Number(e.target.value); const n = fp(it); it.x = snap(cx - n.w / 2, 5); it.y = snap(cy - n.d / 2, 5); afterEdit(true);
+  });
+  p.querySelectorAll("[data-gap]").forEach((inp) => inp.addEventListener("change", () => {
+    if (kilitUyar()) return;
+    const k = inp.dataset.gap, v = Math.max(0, Math.round(Number(inp.value) || 0)), g2 = gapsOf(it), fark = v - g2[k];
+    if (!fark) return;
+    pushUndo(); const rd = ridersOf(it);
+    // sol boşluğu artırmak sağa, sağ boşluğu artırmak sola kaydırır (üst/alt aynı mantık)
+    const d = { sol: [fark, 0], sag: [-fark, 0], ust: [0, fark], alt: [0, -fark] }[k];
+    moveBy(it, d[0], d[1], rd); settle(it, rd); afterEdit(true);
+  }));
+  if ($("mvStep")) { $("mvStep").value = String(mvStep); $("mvStep").addEventListener("change", (e) => (mvStep = Number(e.target.value))); }
+  p.querySelectorAll("[data-mv]").forEach((b) => b.addEventListener("click", () => { const [dx, dy] = b.dataset.mv.split(",").map(Number); nudge(dx * mvStep, dy * mvStep); }));
+  $("aRot").addEventListener("click", rotateSel);
+  $("aDup").addEventListener("click", dupSel);
+  $("aDel").addEventListener("click", delSel);
+  p.querySelectorAll("[data-cell]").forEach((b) => b.addEventListener("click", () => { selCell = b.dataset.cell; renderProps(); if (view !== "2d") build3d(); }));
+}
+
+/* bölme formu: içerik + al / koy / say + tartıyla sayım + son hareketler */
+/* hammadde bölmesi: malzeme + profil + ölçüden kg/m; çıkış kg ile ya da kesilen boyla */
+function cellFormHM(d, a) {
+  const c = cellOf(d, a) || {}, du = durumOf(c.kod || c.ad ? c : null), gy = gunYeter(c), ort = gunlukOrt(c);
+  const kgm = kgMetre(c), cubuk = kgm && c.boy ? (Number(c.miktar) || 0) / (kgm * c.boy) : null;
+  const son = (cur.hareketler || []).filter((h) => h.a === a).slice(0, 6);
+  const ts = (iso) => new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const aEt = { lama: "En (mm)", boru: "Dış Ø (mm)", altikose: "Anahtar ağzı (mm)", kare: "Kenar (mm)" }[c.profil] || "Çap Ø (mm)";
+  return `<div class="cellbox" id="cellBox">
+    <div class="cellhead"><span class="addr">${esc(addrGoster(a))}</span>${c.ornek ? `<span class="tag">örnek veri</span>` : ""}<span class="pill" style="background:${DURUM[du].renk}">${DURUM[du].ad}</span></div>
+    <div class="big"><b>${fmtN(c.miktar)}</b> kg${c.min ? ` <span class="muted">· en az ${fmtN(c.min)} kg</span>` : ""}</div>
+    <div class="gaps">${kgm ? `${fmtN(kgm.toFixed(2))} kg/m${cubuk != null ? ` · ≈ ${fmtN(cubuk.toFixed(1))} çubuk (${fmtN(c.boy)} m)` : ""}` : "Malzeme, profil ve ölçüyü girin; kg/m hesaplanır."}</div>
+    <div class="gaps">${ort ? `Günlük ortalama ${fmtN(ort.toFixed(1))} kg · <b class="${gy !== null && gy <= TEDARIK_GUN ? "bad" : ""}">${gy === null ? "—" : `≈ ${gy} gün yeter`}</b>` : "Henüz çıkış kaydı yok."}</div>
+    <div class="grid2">
+      <label>Stok kodu<input id="hKod" value="${esc(c.kod || "")}" placeholder="ST-40-00-11"></label>
+      <label>Malzeme<select id="hMal">${Object.entries(MALZEME).map(([k, v]) => `<option value="${k}"${c.malzeme === k ? " selected" : ""}>${v.ad}</option>`).join("")}</select></label>
+    </div>
+    <div class="grid3">
+      <label>Profil<select id="hPro">${Object.entries(PROFIL).map(([k, v]) => `<option value="${k}"${(c.profil || "yuvarlak") === k ? " selected" : ""}>${v.split(" (")[0]}</option>`).join("")}</select></label>
+      <label>${aEt}<input id="hA" type="number" min="0" step="0.5" value="${c.a ?? ""}"></label>
+      ${["lama", "boru"].includes(c.profil) ? `<label>${c.profil === "lama" ? "Kalınlık" : "Et"} (mm)<input id="hB" type="number" min="0" step="0.5" value="${c.b ?? ""}"></label>` : `<label>Çubuk boyu (m)<input id="hBoy" type="number" min="0" step="0.1" value="${c.boy ?? ""}"></label>`}
+    </div>
+    <div class="grid2">
+      ${["lama", "boru"].includes(c.profil) ? `<label>Çubuk boyu (m)<input id="hBoy" type="number" min="0" step="0.1" value="${c.boy ?? ""}"></label>` : ""}
+      <label>En az (kg)<input id="hMin" type="number" min="0" step="1" value="${c.min ?? ""}"></label>
+    </div>
+    <div class="moveRow">
+      <input id="hKg" type="number" min="0" step="0.1" value="" placeholder="kg" aria-label="kg">
+      <button class="btn" id="hCik">− Çıkış</button><button class="btn" id="hGir">+ Giriş</button><button class="btn" id="hSay" title="Yazdığınız kg bölmedeki yeni miktar olur (vinç tartısı / sayım)">= Sayım</button>
+    </div>
+    <div class="moveRow">
+      <input id="hBoyKes" type="number" min="0" step="0.01" placeholder="boy (m)" aria-label="Kesilen boy metre">
+      <span class="muted">×</span><input id="hParca" type="number" min="1" step="1" value="1" aria-label="Parça sayısı" style="width:60px">
+      <button class="btn" id="hKes"${kgm ? "" : " disabled"}>Kesilen boydan çıkış</button>
+      <span class="gaps" id="hKesOn"></span>
+    </div>
+    <div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${ts(h.t)}</span> ${{ al: "Çıkış", koy: "Giriş", say: "Sayım" }[h.tip]} <b>${h.tip === "al" ? "−" : h.tip === "koy" ? "+" : h.n >= 0 ? "+" : "−"}${fmtN(Math.abs(h.n))} kg</b> → ${fmtN(h.sonra)}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Bu bölmede henüz hareket yok."}</div>
+    <div class="acts"><button class="btn danger" id="cBos">Bölmeyi boşalt</button></div>
+  </div>`;
+}
+function bindCellFormHM(d, a) {
+  const get = () => { d.cells = d.cells || {}; const c = cellOf(d, a) || {}; d.cells[a] = c; return c; };
+  const adYenile = (c) => { if (c.malzeme) c.ad = `${MALZEME[c.malzeme].ad} ${(PROFIL[c.profil || "yuvarlak"] || "").split(" ")[0].toLowerCase()} ${c.a ? olcuYazi(c) : ""}`.trim(); };
+  const field = (id, key, numeric) => $(id)?.addEventListener("change", (e) => { pushUndo(); const c = get(); const v = e.target.value; c[key] = numeric ? (v === "" ? undefined : Number(v)) : v; if (["malzeme", "profil", "a", "b"].includes(key)) adYenile(c); delete c.ornek; afterEdit(true); });
+  field("hKod", "kod"); field("hMal", "malzeme"); field("hPro", "profil"); field("hA", "a", true); field("hB", "b", true); field("hBoy", "boy", true); field("hMin", "min", true);
+  const act = (tip) => { const n = Number($("hKg").value); if (!(n >= 0) || $("hKg").value === "") return; pushUndo(); get(); hareket(d, a, tip, n, ""); afterEdit(true); };
+  $("hCik").addEventListener("click", () => act("al"));
+  $("hGir").addEventListener("click", () => act("koy"));
+  $("hSay").addEventListener("click", () => act("say"));
+  const kesKg = () => { const c = cellOf(d, a) || {}, m = Number($("hBoyKes").value), p = Math.max(1, Math.round(Number($("hParca").value) || 1)); return { kg: SAYI(kgMetre(c) * m * p), m, p }; };
+  const on = () => { const k = kesKg(); $("hKesOn").textContent = k.m ? `≈ ${fmtN(k.kg)} kg` : ""; };
+  $("hBoyKes").addEventListener("input", on); $("hParca").addEventListener("input", on);
+  $("hKes").addEventListener("click", () => { const k = kesKg(); if (!k.m) return; pushUndo(); get(); hareket(d, a, "al", k.kg, `kesim: ${fmtN(k.m)} m × ${k.p}`); afterEdit(true); });
+  $("cBos").addEventListener("click", () => { pushUndo(); delete d.cells[a]; afterEdit(true); });
+}
+
+function cellForm(d, a) {
+  if (HM) return cellFormHM(d, a);
+  const c = cellOf(d, a) || {}, du = durumOf(c.ad || c.kod ? c : null), gy = gunYeter(c), ort = gunlukOrt(c);
+  const son = (cur.hareketler || []).filter((h) => h.a === a).slice(0, 6);
+  const tip = { al: "Alındı", koy: "Kondu", say: "Sayım" };
+  const ts = (iso) => new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return `<div class="cellbox" id="cellBox">
+    <div class="cellhead"><span class="addr">${esc(a)}</span>${c.ornek ? `<span class="tag">örnek veri</span>` : ""}<span class="pill" style="background:${DURUM[du].renk}">${DURUM[du].ad}</span></div>
+    <div class="big"><b>${c.miktar ?? "—"}</b> adet${c.min ? ` <span class="muted">· en az ${c.min}</span>` : ""}</div>
+    <div class="gaps">${ort ? `Günlük ortalama ${ort.toFixed(1)} adet · <b class="${gy !== null && gy <= TEDARIK_GUN ? "bad" : ""}">${gy === null ? "—" : `≈ ${gy} gün yeter`}</b>${gy !== null && gy <= TEDARIK_GUN ? " · sipariş zamanı" : ""}` : "Henüz tüketim kaydı yok; alım yapıldıkça günlük ortalama hesaplanır."}</div>
+    <div class="grid2">
+      <label>Stok kodu<input id="cKod" value="${esc(c.kod || "")}" placeholder="OR-2*28-70"></label>
+      <label>Tür<select id="cTur">${Object.entries(TUR).map(([k, v]) => `<option value="${k}"${(c.tur || "diger") === k ? " selected" : ""}>${v.ad}</option>`).join("")}</select></label>
+    </div>
+    <label>Ürün adı<input id="cAd" value="${esc(c.ad || "")}" placeholder="O-ring 28x2 NBR 70 Shore"></label>
+    <div class="grid3">
+      <label>Kap<select id="cKap"><option value="kutu"${c.kap === "kutu" ? " selected" : ""}>Plastik kutu</option><option value="paket"${c.kap !== "kutu" ? " selected" : ""}>Paket</option></select></label>
+      <label>En az (adet)<input id="cMin" type="number" min="0" value="${c.min ?? ""}"></label>
+      <label>Birim (g)<input id="cBg" type="number" min="0" step="0.01" value="${c.birimG ?? ""}"></label>
+    </div>
+    <div class="moveRow">
+      <input id="cN" type="number" min="0" value="10" aria-label="Adet">
+      <button class="btn" id="cAl">− Al</button><button class="btn" id="cKoy">+ Koy</button><button class="btn" id="cSay" title="Yazdığınız sayı bölmedeki yeni miktar olur">= Sayım</button>
+    </div>
+    <div class="moveRow">
+      <input id="cGr" type="number" min="0" step="0.1" placeholder="Tartı (g)" aria-label="Tartı gram">
+      <button class="btn" id="cTart"${c.birimG ? "" : " disabled title=\"Önce birim ağırlığı girin\""}>Tartıdan say</button>
+      <span class="gaps" id="cTartOn"></span>
+    </div>
+    <div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${ts(h.t)}</span> ${tip[h.tip]} <b>${h.tip === "al" ? "−" : h.tip === "koy" ? "+" : h.n >= 0 ? "+" : "−"}${Math.abs(h.n)}</b> → ${h.sonra}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Bu bölmede henüz hareket yok."}</div>
+    <div class="acts"><button class="btn danger" id="cBos">Bölmeyi boşalt</button></div>
+  </div>`;
+}
+function bindCellForm(d, a) {
+  if (HM) return bindCellFormHM(d, a);
+  const get = () => { d.cells = d.cells || {}; const c = cellOf(d, a) || {}; d.cells[a] = c; return c; };
+  const field = (id, key, numeric) => $(id)?.addEventListener("change", (e) => { pushUndo(); const c = get(); const v = e.target.value; c[key] = numeric ? (v === "" ? undefined : Number(v)) : v; delete c.ornek; afterEdit(true); });
+  field("cKod", "kod"); field("cAd", "ad"); field("cTur", "tur"); field("cKap", "kap"); field("cMin", "min", true); field("cBg", "birimG", true);
+  const act = (tip) => { const n = Number($("cN").value); if (!(n >= 0)) return; pushUndo(); get(); hareket(d, a, tip, n, ""); afterEdit(true); };
+  $("cAl").addEventListener("click", () => act("al"));
+  $("cKoy").addEventListener("click", () => act("koy"));
+  $("cSay").addEventListener("click", () => act("say"));
+  $("cGr").addEventListener("input", () => { const c = cellOf(d, a) || {}, g = Number($("cGr").value); $("cTartOn").textContent = c.birimG && g ? `≈ ${Math.round(g / c.birimG)} adet` : ""; });
+  $("cTart").addEventListener("click", () => { const c = cellOf(d, a) || {}, g = Number($("cGr").value); if (!c.birimG || !g) return; pushUndo(); hareket(d, a, "say", Math.round(g / c.birimG), `tartı: ${g} g`); afterEdit(true); });
+  $("cBos").addEventListener("click", () => { pushUndo(); delete d.cells[a]; afterEdit(true); });
+}
+
+/* stok paneli: arama, sipariş listesi, son hareketler, test araçları */
+function renderStok(p, tabs) {
+  const all = tumBolmeler(), say = (k) => all.filter((b) => durumOf(b.c) === k).length;
+  const siparis = all.filter((b) => ["kritik", "bitti"].includes(durumOf(b.c)) || (gunYeter(b.c) !== null && gunYeter(b.c) <= TEDARIK_GUN))
+    .sort((x, y) => (gunYeter(x.c) ?? -1) - (gunYeter(y.c) ?? -1));
+  const satir = (b) => { const du = durumOf(b.c), gy = gunYeter(b.c); return `<button class="srow" data-go="${b.a}"><span class="dot" style="background:${DURUM[du].renk}"></span><span class="addr">${addrGoster(b.a)}</span><span class="nm">${esc(b.c.kod || b.c.ad || "")}</span><span class="qty">${fmtN(b.c.miktar)}${HM ? " kg" : ""}${gy !== null ? ` · ${gy} g` : ""}</span></button>`; };
+  const tip = { al: "−", koy: "+" };
+  const son = (cur.hareketler || []).slice(0, 8);
+  const ornek = all.some((b) => b.c.ornek);
+  p.innerHTML = `${tabs}<div class="stack">
+    <label>Ürün ara (kod, ad ya da adres)<input id="sAra" placeholder="${HM ? "ör. otomat 40, 1040, lama 30, A 0101" : "ör. 28x2, bilya 6, C04-B02"}" value="${esc(stokAra)}"></label>
+    <div id="sSonuc"></div>
+    ${raporHtml()}
+    <div class="chips"><span class="chip">${all.length} kalem</span><span class="chip" style="border-color:${DURUM.bitti.renk}">Biten <b>${say("bitti")}</b></span><span class="chip" style="border-color:${DURUM.kritik.renk}">Kritik <b>${say("kritik")}</b></span><span class="chip" style="border-color:${DURUM.az.renk}">Azalan <b>${say("az")}</b></span></div>
+    <div><h2 style="margin:4px 0 6px">Sipariş listesi</h2><div class="slist">${siparis.length ? siparis.slice(0, 14).map(satir).join("") : `<p class="hint" style="margin:0">Şu an sipariş gereken kalem yok.</p>`}</div>
+      <p class="hint" style="margin:6px 0 0">En az miktarın altına düşenler ve ${TEDARIK_GUN} günden kısa sürede bitecekler (g = kaç gün yeter).</p></div>
+    <div><h2 style="margin:4px 0 6px">Son hareketler</h2><div class="gaps log">${son.length ? son.map((h) => `<div><span class="muted">${new Date(h.t).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span> <span class="addr">${addrGoster(h.a)}</span> ${h.tip === "say" ? `sayım ${h.n >= 0 ? "+" : "−"}` : tip[h.tip]}${fmtN(Math.abs(h.n))} → ${fmtN(h.sonra)}${HM ? " kg" : ""}${h.not ? ` <span class="muted">· ${esc(h.not)}</span>` : ""}</div>`).join("") : "Henüz hareket yok."}</div></div>
+    <div><h2 style="margin:4px 0 6px">Test araçları</h2>
+      <div class="acts"><button class="btn" id="sSim">30 günlük kullanım üret</button><button class="btn${canliTimer ? " on" : ""}" id="sCanli">${canliTimer ? "■ Canlı akışı durdur" : "▶ Canlı akış"}</button><button class="btn" id="sQR">QR etiketleri</button><button class="btn" id="sDoldur" title="Yalnız boş bölmelere örnek içerik koyar; girdiğiniz bölmelere dokunmaz">Boş bölmeleri örnekle doldur</button></div>
+      <p class="hint" style="margin:6px 0 0">Canlı akış, depodan her 2 saniyede bir malzeme alınıyormuş gibi kayıt düşer; 3D'de o bölme yanıp söner. ${ornek ? "Raflardaki içerik <b>örnektir</b>, gerçek stok değildir." : ""} Kayıtlar bu tarayıcıda tutulur.</p></div>
+  </div>`;
+  const sonuc = () => {
+    const q = stokAra.trim().toLocaleLowerCase("tr").replace(/[x*×]/g, " ").split(/\s+/).filter(Boolean);
+    const hits = q.length ? all.filter((b) => { const t = `${b.a} ${b.c.kod || ""} ${b.c.ad || ""}`.toLocaleLowerCase("tr").replace(/[x*×]/g, " "); return q.every((w) => t.includes(w)); }) : [];
+    $("sSonuc").innerHTML = q.length ? (hits.length ? `<div class="slist">${hits.slice(0, 10).map(satir).join("")}</div>${hits.length > 10 ? `<p class="hint" style="margin:4px 0 0">${hits.length} sonuçtan ilk 10'u</p>` : ""}` : `<p class="hint" style="margin:0">Bulunamadı.</p>`) : "";
+    $("sSonuc").querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => goCell(b.dataset.go)));
+  };
+  $("sAra").addEventListener("input", (e) => { stokAra = e.target.value; sonuc(); });
+  sonuc();
+  p.querySelectorAll(".slist [data-go]").forEach((b) => b.addEventListener("click", () => goCell(b.dataset.go)));
+  $("sSim").addEventListener("click", () => { pushUndo(); simule30(); afterEdit(true); });
+  $("sCanli").addEventListener("click", () => { if (canliTimer) { clearInterval(canliTimer); canliTimer = 0; } else { canliTimer = setInterval(canliAdim, 2000); canliAdim(); } renderProps(); });
+  $("sQR").addEventListener("click", qrEtiketleri);
+  p.querySelectorAll("[data-donem]").forEach((b) => b.addEventListener("click", () => { raporGun = +b.dataset.donem; renderProps(); }));
+  p.querySelectorAll(".rapor [data-go]").forEach((b) => b.addEventListener("click", () => goCell(b.dataset.go)));
+  $("sDoldur").addEventListener("click", () => { pushUndo(); ornekDoldur(); afterEdit(true); });
+}
+let stokAra = "", raporGun = 7;
+/* tüketim raporu: seçilen dönemde malzemeye (hammadde) / türe (bileşen) göre çıkan ve giren miktar */
+function raporHtml() {
+  const sinir = bugun(new Date(Date.now() - (raporGun - 1) * 864e5)), gruplar = {}, kalemler = [];
+  const grupAd = (c) => (HM ? MALZEME[c.malzeme]?.ad : TUR[c.tur]?.ad) || "Diğer";
+  tumBolmeler().forEach(({ a, c }) => {
+    const cik = Object.entries(c.gunluk || {}).filter(([k]) => k >= sinir).reduce((s, [, v]) => s + v, 0);
+    if (!cik) return;
+    const g = grupAd(c); gruplar[g] = gruplar[g] || { cik: 0, gir: 0 }; gruplar[g].cik += cik;
+    kalemler.push({ a, c, cik });
+  });
+  const t0 = new Date(sinir + "T00:00:00").getTime();
+  (cur.hareketler || []).forEach((h) => {
+    if (h.tip !== "koy" || new Date(h.t).getTime() < t0) return;
+    const d = dolapOfAddr(h.a), c = d && cellOf(d, h.a); const g = c ? grupAd(c) : "Diğer";
+    gruplar[g] = gruplar[g] || { cik: 0, gir: 0 }; gruplar[g].gir += h.n;
+  });
+  const sira = Object.entries(gruplar).sort((x, y) => y[1].cik - x[1].cik), enCok = Math.max(1, ...sira.map(([, v]) => v.cik));
+  const top = sira.reduce((s, [, v]) => s + v.cik, 0);
+  kalemler.sort((x, y) => y.cik - x.cik);
+  const b = HM ? " kg" : "";
+  return `<div class="rapor"><h2 style="margin:4px 0 6px">${HM ? "Hangi hammaddeden kaç kg eksildi?" : "Tüketim raporu"}</h2>
+    <div class="donem">${[[1, "Bugün"], [7, "7 gün"], [30, "30 gün"]].map(([g, t]) => `<button class="btn${raporGun === g ? " on" : ""}" data-donem="${g}">${t}</button>`).join("")}</div>
+    ${sira.length ? `<div class="rbar-list">${sira.map(([ad, v]) => `<div class="rbar"><span class="ad">${esc(ad)}</span><span class="cubuk"><i style="width:${(v.cik / enCok) * 100}%"></i></span><b>${fmtN(SAYI(v.cik))}${b}</b>${v.gir ? `<span class="muted">+${fmtN(SAYI(v.gir))} giriş</span>` : ""}</div>`).join("")}</div>
+      <div class="gaps">Toplam çıkış: <b>${fmtN(SAYI(top))}${b}</b></div>
+      <div class="slist">${kalemler.slice(0, 6).map((k) => `<button class="srow" data-go="${k.a}"><span class="dot" style="background:var(--accent)"></span><span class="addr">${addrGoster(k.a)}</span><span class="nm">${esc(k.c.kod || k.c.ad || "")}</span><span class="qty">−${fmtN(SAYI(k.cik))}${b}</span></button>`).join("")}</div>`
+      : `<p class="hint" style="margin:0">Bu dönemde çıkış kaydı yok. Bölmeden çıkış girildikçe burada malzeme malzeme toplanır${ornekVar() ? "; denemek için aşağıdaki \"30 günlük kullanım üret\"e basın" : ""}.</p>`}
+  </div>`;
+}
+const ornekVar = () => tumBolmeler().some((b) => b.c.ornek);
+// her bölme için QR'lı raf etiketi: telefonla okutunca ikiz o bölmeyle açılır
+function qrEtiketleri() {
+  const BASE = `https://akkusmehmet584-gif.github.io/hidrolik-pazar-radari/${HM ? "hammadde-ikizi" : "depo-ikizi"}/`;
+  if (!window.qrcode) { setSave("QR kütüphanesi yüklenemedi", true); return; }
+  const all = tumBolmeler();
+  const kart = all.map(({ a, c }) => { const q = qrcode(0, "M"); q.addData(BASE + "#" + (HM ? a.replace("-", "") : a)); q.make(); return `<div class="lb">${q.createSvgTag({ cellSize: 3, margin: 0 })}<div><b>${addrGoster(a)}</b><div class="k">${esc(c.kod || "")}</div><div class="n">${esc(c.ad || "")}</div></div></div>`; }).join("");
+  const w = window.open("", "_blank");
+  if (!w) { setSave("Açılır pencere engellendi; tarayıcıda izin verin", true); return; }
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Raf etiketleri</title><style>body{font-family:Arial,sans-serif;margin:10mm}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}.lb{display:flex;gap:3mm;align-items:center;border:1px solid #999;border-radius:2mm;padding:2mm;break-inside:avoid}.lb svg{width:22mm;height:22mm;flex:none}b{font-size:15pt;font-family:monospace}.k{font-size:9pt;font-family:monospace}.n{font-size:8pt;color:#333}@media print{button{display:none}}</style><button onclick="print()">Yazdır</button><p>${all.length} bölme · etiketi okutunca depo ikizi o bölmeyle açılır.</p><div class="g">${kart}</div>`);
+  w.document.close();
+}
+
+/* ---------- özet ---------- */
+function renderStats() {
+  if (!cur) { $("stats").innerHTML = ""; return; }
+  const R = cur.room, I = cur.items, bad = problems();
+  const dol = I.filter((i) => i.type === "dolap");
+  const cells = dol.reduce((a, d) => a + d.cols * d.rows, 0);
+  const bol = tumBolmeler(), full = bol.length, krit = bol.filter((b) => ["kritik", "bitti"].includes(durumOf(b.c))).length;
+  const kova = dol.reduce((a, d) => a + (d.kova || 0), 0) + I.filter((i) => i.type === "kova").length;
+  const kolis = I.filter((i) => i.type === "koli"), koliN = kolis.reduce((a, k) => a + (k.stack || 1), 0);
+  const looseKoli = kolis.filter((k) => !I.some((z) => z.type === "bant" && kolisIn(z).includes(k))).reduce((a, k) => a + (k.stack || 1), 0);
+  const occ = I.filter(isSolid).reduce((a, i) => a + i.w * i.d, 0);
+  $("stats").innerHTML = [
+    `<span class="chip">Oda <b>${((R.w * R.h) / 10000).toFixed(1)} m²</b></span>`,
+    `<span class="chip">Dolu zemin <b>${Math.round((occ / (R.w * R.h)) * 100)}%</b></span>`,
+    `<span class="chip">Dolap <b>${dol.length}</b></span>`,
+    `<span class="chip">Bölme <b>${cells}</b> · dolu <b>${full}</b></span>`,
+    krit ? `<span class="chip bad">Sipariş gereken <b>${krit}</b> kalem</span>` : "",
+    HM ? `<span class="chip">Toplam stok <b>${fmtN(SAYI(bol.reduce((t, b) => t + (Number(b.c.miktar) || 0), 0)))} kg</b></span>` : "",
+    HM ? "" : `<span class="chip">Kova <b>${kova}</b></span>`,
+    HM ? "" : `<span class="chip">Koli <b>${koliN}</b>${looseKoli ? ` · bant dışında <b>${looseKoli}</b>` : ""}</span>`,
+    bad.size ? `<span class="chip bad">Çakışan / taşan <b>${bad.size}</b> nesne</span>` : `<span class="chip">Çakışma yok</span>`,
+  ].join("");
+}
+
+function renderAll(full) {
+  $("empty").hidden = !!cur || mode === "loading";
+  if (cur && document.activeElement !== $("roomW")) $("roomW").value = cur.room.w;
+  if (cur && document.activeElement !== $("roomH")) $("roomH").value = cur.room.h;
+  renderScenBar(); renderStats(); renderPlan(); renderProps();
+  if (view !== "2d") build3d();
+}
+["roomW", "roomH"].forEach((id) => {
+  $(id).addEventListener("focus", () => cur && pushUndo());
+  $(id).addEventListener("input", (e) => { if (!cur) return; const v = Math.max(200, Math.round(Number(e.target.value) || 0)); cur.room[id === "roomW" ? "w" : "h"] = v; scheduleSave(); renderPlan(); renderStats(); if (view !== "2d") build3d(); });
+});
+
+/* ---------- 3D ---------- */
+let three = null;
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || "#888"; }
+function init3d() {
+  if (three || !window.THREE) return !!three;
+  const host = $("view3d");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.shadowMap.enabled = true;
+  host.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.maxPolarAngle = Math.PI / 2.05;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 0.75));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(4, 9, 6); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 });
+  scene.add(sun);
+  const world = new THREE.Group(); scene.add(world);
+  three = { renderer, scene, camera, controls, world, sun, raf: 0, framed: false };
+  new ResizeObserver(size3d).observe(host);
+
+  // 3D'de taşıma: nesneye basıp sürükle → zemin düzleminde kayar; boş yere basınca görünüm döner
+  const ray = new THREE.Raycaster(), floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitPt = new THREE.Vector3();
+  const floorAt = (e) => {
+    const b = renderer.domElement.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1), camera);
+    return ray;
+  };
+  // ölçü modunda: tıklama ölçü noktası koyar, sürükleme görünümü çevirir (nesne taşınmaz)
+  renderer.domElement.addEventListener("pointerup", (e) => {
+    if (!olcMod || !olcDown) return;
+    const kipirti = Math.hypot(e.clientX - olcDown.x, e.clientY - olcDown.y); olcDown = null;
+    if (kipirti > 5) return;
+    const p = olc3Nokta(e); if (!p) return;
+    if (!olc3Bas) olc3Bas = { x: p.x, y: p.y, z: p.z };
+    else { olc3.push({ a: olc3Bas, b: { x: p.x, y: p.y, z: p.z } }); olc3Bas = null; olc3Onizle = null; }
+    olcGuncelle();
+  });
+  let onizT = 0;
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (!olcMod || !olc3Bas || look || e.timeStamp - onizT < 50) return;
+    onizT = e.timeStamp; olc3Onizle = olc3Nokta(e); olc3Ciz();
+  });
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    if (!cur || e.button > 0) return;
+    if (olcMod) {
+      olcDown = { x: e.clientX, y: e.clientY };
+      if (view === "fp") { look = { x: e.clientX, y: e.clientY, yaw: player.yaw, pitch: player.pitch }; try { renderer.domElement.setPointerCapture(e.pointerId); } catch {} }
+      return;
+    }
+    const hits = floorAt(e).intersectObjects(world.children, true);
+    let id = null, cellHit = null;
+    for (const h of hits) { if (h.object.isSprite && !h.object.visible) continue; let o = h.object; cellHit = o.userData.cell || null; while (o && !o.userData.id) o = o.parent; if (o) { id = o.userData.id; break; } }
+    const it = id && cur.items.find((i) => i.id === id);
+    // raftaki kutu/pakete tıklanınca o bölmenin stok formu açılır
+    if (it && cellHit) { sel = it.id; selCell = cellHit; panel = "nesne"; renderProps(); build3d(); setTimeout(() => $("cellBox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); return; }
+    // içeride gezerken boş yeri sürüklemek etrafa bakmaktır
+    // taşıma kilitliyse nesneye basmak yalnız seçer; sürükleme görünümü döndürür / etrafa baktırır
+    if (it && kilit) { sel = it.id; selCell = null; renderProps(); markSel3d(); }
+    if (!it || kilit) { if (view === "fp") { look = { x: e.clientX, y: e.clientY, yaw: player.yaw, pitch: player.pitch }; try { renderer.domElement.setPointerCapture(e.pointerId); } catch {} } return; }
+    // yüksekteki nesneyi kendi taban yüksekliğindeki düzlemde sürükle (zemine göre sürüklemek fazla zıplatıyor)
+    floorPlane.constant = -(it.z || 0) * 0.01;
+    if (!ray.ray.intersectPlane(floorPlane, hitPt)) return;
+    controls.enabled = false;
+    sel = it.id; selCell = null;
+    dragging = { id: it.id, mode: "3d", dx: hitPt.x / 0.01 - it.x, dy: hitPt.z / 0.01 - it.y, before: JSON.stringify(cur), moved: false, riders: ridersOf(it) };
+    try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+    renderProps(); markSel3d();
+  }, true);
+  // içeride gezerken tekerlek: görüş açısını daralt (yakınlaştır) / genişlet
+  renderer.domElement.addEventListener("wheel", (e) => {
+    if (view !== "fp") return;
+    e.preventDefault();
+    camera.fov = Math.max(25, Math.min(100, camera.fov + Math.sign(e.deltaY) * 5));
+    camera.updateProjectionMatrix();
+    fpFov = camera.fov; showFov();
+  }, { passive: false });
+  // fare hangi dolabın üstündeyse onun numarasını göster (60 ms'de bir bakılır)
+  let hoverT = 0;
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (look || dragging || e.timeStamp - hoverT < 60) return;
+    hoverT = e.timeStamp;
+    let id = null;
+    for (const h of floorAt(e).intersectObjects(world.children, true)) {
+      if (h.object.isSprite && !h.object.visible) continue;
+      let o = h.object; while (o && !o.userData.id) o = o.parent;
+      if (o) { const it = cur?.items.find((i) => i.id === o.userData.id); id = it && it.type === "dolap" ? it.id : null; break; }
+    }
+    setHover(id);
+  });
+  renderer.domElement.addEventListener("pointerleave", () => setHover(null));
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (look) {
+      // fareyi sağa çekince sağa, yukarı çekince yukarı bakılır
+      player.yaw = look.yaw - (e.clientX - look.x) * 0.005;
+      player.pitch = Math.max(-1.1, Math.min(1.1, look.pitch - (e.clientY - look.y) * 0.004));
+      return;
+    }
+    if (!dragging || dragging.mode !== "3d") return;
+    const it = cur.items.find((i) => i.id === dragging.id);
+    if (!it || !floorAt(e).ray.intersectPlane(floorPlane, hitPt)) return;
+    const f = fp(it);
+    let nx = snap(hitPt.x / 0.01 - dragging.dx), ny = snap(hitPt.z / 0.01 - dragging.dy);
+    nx = Math.max(-f.w / 2, Math.min(cur.room.w - f.w / 2, nx)); ny = Math.max(-f.d / 2, Math.min(cur.room.h - f.d / 2, ny));
+    if (nx === it.x && ny === it.y) return;
+    moveBy(it, nx - it.x, ny - it.y, dragging.riders); settle(it, dragging.riders); dragging.moved = true;
+    // sürüklerken nesne (ve üstündekiler) bir şeyin üstüne gelince oraya çıkar
+    for (const o of [it, ...dragging.riders]) {
+      const g = world.children.find((c) => c.userData.id === o.id), q = fp(o);
+      if (g) g.position.set((o.x + q.w / 2) * 0.01, (o.z || 0) * 0.01, (o.y + q.d / 2) * 0.01);
+    }
+    markSel3d(); renderStats();
+  });
+  return true;
+}
+// seçili nesnenin çevresine sarı çerçeve
+let hoverId = null;
+function etiketleriGuncelle() { three?.world.traverse((o) => { if (o.userData.etiket) o.visible = o.userData.etiket === hoverId || o.userData.etiket === sel; }); }
+function setHover(id) { if (id === hoverId) return; hoverId = id; $("stage").dataset.hover = id || ""; etiketleriGuncelle(); }
+function markSel3d() {
+  etiketleriGuncelle();
+  if (!three) return;
+  const old = three.world.getObjectByName("secim"); if (old) { three.world.remove(old); old.geometry.dispose(); }
+  const it = getSel(); if (!it) return;
+  const f = fp(it), S = 0.01, h = Math.max(it.h || 0, 2) * S * (it.type === "koli" ? (it.stack || 1) : 1);
+  const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(f.w * S + 0.04, h + 0.02, f.d * S + 0.04)), new THREE.LineBasicMaterial({ color: 0xf2c400 }));
+  box.name = "secim"; box.position.set((it.x + f.w / 2) * S, (it.z || 0) * S + h / 2, (it.y + f.d / 2) * S);
+  three.world.add(box);
+}
+function size3d() { if (!three) return; const h = $("view3d"); const w = h.clientWidth, ht = h.clientHeight; if (!w || !ht) return; three.renderer.setSize(w, ht); three.camera.aspect = w / ht; three.camera.updateProjectionMatrix(); }
+function mat(c, o = {}) { return new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, metalness: 0.05, ...o }); }
+function box(w, h, d, m, x, y, z) { const me = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); me.position.set(x, y, z); me.castShadow = true; me.receiveShadow = true; return me; }
+function label(text, color = "#ffffff", bg = "rgba(37,82,196,.92)") {
+  const c = document.createElement("canvas"), ctx = c.getContext("2d"); c.width = 256; c.height = 96;
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(8, 8, 240, 80, 14) : ctx.rect(8, 8, 240, 80); ctx.fill();
+  ctx.fillStyle = color; ctx.font = "700 46px 'Barlow Condensed', Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, 128, 50);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+  sp.scale.set(0.8, 0.3, 1); sp.renderOrder = 10; return sp;
+}
+/* bir hammadde bölmesindeki çubuklar: kg / (kg/m × boy) adet çubuk, kesite göre dizilir; tek InstancedMesh (hızlı) */
+function cubukDemeti(v, x, y0, cw, ch, D) {
+  const kgm = kgMetre(v), boy = Number(v.boy) || 3, a = Math.max(6, Number(v.a) || 20) / 1000, b = Math.max(3, Number(v.b) || 5) / 1000;
+  const n = kgm ? Math.min(60, Math.round((Number(v.miktar) || 0) / (kgm * boy))) : 0;
+  if (!n) return [];
+  const Lb = Math.min(boy, 2.6), pro = v.profil || "yuvarlak", mm = MALZEME[v.malzeme] || MALZEME.otomat;
+  const gw = pro === "lama" ? a : a, gh = pro === "lama" ? b : a;  // kesit genişliği / yüksekliği
+  let geo;
+  if (pro === "lama" || pro === "kare") geo = new THREE.BoxGeometry(gw, gh, Lb);
+  else { geo = new THREE.CylinderGeometry(a / 2, a / 2, Lb, pro === "altikose" ? 6 : 12); geo.rotateX(Math.PI / 2); }
+  const m = new THREE.InstancedMesh(geo, mat(mm.renk, { metalness: v.malzeme === "plastik" ? 0 : 0.55, roughness: 0.45 }), n);
+  const genis = cw * 0.75, sutun = Math.max(1, Math.floor(genis / (gw * 1.05))), sira = Math.ceil(n / sutun);
+  const zc = -D / 2 + Lb / 2, dm = new THREE.Matrix4(), uclar = [];
+  for (let k = 0; k < n; k++) {
+    const i = k % sutun, j = Math.floor(k / sutun), satirN = Math.min(sutun, n - j * sutun);
+    const px = x + (i - (satirN - 1) / 2) * gw * 1.05, py = y0 + gh / 2 + j * gh * 1.02;
+    if (py > y0 + ch * 0.9) break;
+    dm.makeTranslation(px, py, zc); m.setMatrixAt(k, dm); uclar.push([px, py]);
+  }
+  m.count = uclar.length; m.instanceMatrix.needsUpdate = true; m.castShadow = false;
+  const out = [m];
+  // uç boyası (otomat yeşil, 1040 kırmızı): rafta göründüğü gibi ön uçta
+  if (mm.uc != null && uclar.length) {
+    const ug = pro === "lama" || pro === "kare" ? new THREE.BoxGeometry(gw * 1.02, gh * 1.02, 0.03) : (() => { const g = new THREE.CylinderGeometry(a / 2 * 1.02, a / 2 * 1.02, 0.03, pro === "altikose" ? 6 : 12); g.rotateX(Math.PI / 2); return g; })();
+    const u = new THREE.InstancedMesh(ug, mat(mm.uc), uclar.length);
+    uclar.forEach(([px, py], k) => { dm.makeTranslation(px, py, zc + Lb / 2 - 0.014); u.setMatrixAt(k, dm); });
+    u.instanceMatrix.needsUpdate = true; out.push(u);
+  }
+  return out;
+}
+function build3d() {
+  if (!init3d() || !cur) return;
+  const { world } = three, S = 0.01, R = cur.room;
+  // canlı akışta sahne sık yenilenir: geometri ve malzemeler de bırakılmalı
+  while (world.children.length) { const o = world.children.pop(); o.traverse?.((n) => { n.geometry?.dispose(); n.material?.map?.dispose(); n.material?.dispose?.(); }); }
+  const blue = mat(css("--accent")), edge = mat(0xf3ead2), red = mat(0xd8283c), clear = mat(0xffffff, { transparent: true, opacity: 0.28, roughness: 0.1 });
+  const M = {
+    kutu: mat(0xffffff, { transparent: true, opacity: 0.22, roughness: 0.1 }), kapak: mat(0xdfe9f2, { transparent: true, opacity: 0.5, roughness: 0.2 }),
+    klips: mat(0x8fd14f), film: mat(0xffffff, { transparent: true, opacity: 0.3, roughness: 0.3 }),
+    tur: Object.fromEntries(Object.entries(TUR).map(([k, v]) => [k, mat(v.renk, { roughness: k === "bilya" ? 0.25 : 0.7, metalness: k === "bilya" ? 0.8 : k === "pul" ? 0.5 : 0.05 })])),
+    durum: Object.fromEntries(Object.entries(DURUM).map(([k, v]) => [k, mat(v.renk, { emissive: v.renk, emissiveIntensity: 0.35 })])),
+  };
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(R.w * S, R.h * S), mat(0xf4f5f2, { roughness: 0.4 })); floor.rotation.x = -Math.PI / 2; floor.position.set(R.w * S / 2, 0, R.h * S / 2); floor.receiveShadow = true; world.add(floor);
+  const gm = new THREE.LineBasicMaterial({ color: 0xc5ccd4 }), pts = [];
+  for (let x = 0; x <= R.w; x += 100) pts.push(new THREE.Vector3(x * S, 0.002, 0), new THREE.Vector3(x * S, 0.002, R.h * S));
+  for (let z = 0; z <= R.h; z += 100) pts.push(new THREE.Vector3(0, 0.002, z * S), new THREE.Vector3(R.w * S, 0.002, z * S));
+  world.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), gm));
+  const wallM = mat(0xe9e3d4, { transparent: true, opacity: 0.55 });
+  world.add(box(R.w * S, 2.6, 0.08, wallM, R.w * S / 2, 1.3, -0.04));
+  world.add(box(0.08, 2.6, R.h * S, wallM, R.w * S + 0.04, 1.3, R.h * S / 2));
+  // içeride gezerken dört duvar da görünsün; dışarıdan bakarken öndeki iki duvar gizli kalır
+  const wallFp = mat(0xe9e3d4);
+  const wl = box(0.08, 2.6, R.h * S, wallFp, -0.04, 1.3, R.h * S / 2), wb = box(R.w * S, 2.6, 0.08, wallFp, R.w * S / 2, 1.3, R.h * S + 0.04);
+  wl.userData.fpOnly = wb.userData.fpOnly = true; wl.visible = wb.visible = view === "fp";
+  world.add(wl, wb);
+
+  for (const it of cur.items) {
+    const r = rect(it), cx = (r.x1 + r.x2) / 2 * S, cz = (r.y1 + r.y2) / 2 * S;
+    const L = it.w * S, D = it.d * S, H = (it.h || 0) * S;
+    const grp = new THREE.Group(); grp.position.set(cx, (it.z || 0) * S, cz); grp.rotation.y = (-it.rot * Math.PI) / 180; grp.userData.id = it.id;
+    if (it.type === "dolap") {
+      const t = 0.018, cols = it.cols || 1, rows = it.rows || 1;
+      const base = 0.06;
+      if (HM) {
+        // hammadde rafı: önde 10 cm mavi plakalar, arkada çelik dikmeler, her katta derinlemesine kollar; raf tablası yok
+        const celik = mat(0x4b5158, { metalness: 0.4, roughness: 0.6 });
+        for (let i = 0; i <= cols; i++) {
+          const x = -L / 2 + (L * i) / cols;
+          grp.add(box(0.1, H, 0.05, blue, x, H / 2, D / 2 - 0.025), box(0.06, H, 0.06, celik, x, H / 2, -D / 2 + 0.03));
+          for (let j = 0; j < rows; j++) grp.add(box(0.05, 0.05, D, celik, x, H - ((H - base) * (j + 1)) / rows + 0.025, 0));
+        }
+        grp.add(box(L, 0.05, 0.05, celik, 0, 0.025, D / 2 - 0.025), box(L, 0.05, 0.05, celik, 0, 0.025, -D / 2 + 0.025));
+      } else {
+        grp.add(box(L, H, t, blue, 0, H / 2, -D / 2 + t / 2));
+        grp.add(box(t, H, D, blue, -L / 2 + t / 2, H / 2, 0)); grp.add(box(t, H, D, blue, L / 2 - t / 2, H / 2, 0));
+        for (let i = 1; i < cols; i++) grp.add(box(t, H, D, blue, -L / 2 + (L * i) / cols, H / 2, 0));
+        grp.add(box(L, base, D, blue, 0, base / 2, 0));
+        for (let j = 0; j <= rows; j++) { const y = base + ((H - base) * j) / rows; grp.add(box(L, t, D, edge, 0, Math.min(H - t / 2, y), 0)); }
+      }
+      // bölme içerikleri: plastik kutu (şeffaf, yeşil klipsli) ya da paket; doluluk miktara göre, önde durum şeridi
+      const cw = L / cols, ch = (H - base) / rows;
+      for (let r2 = 0; r2 < rows; r2++) for (let c = 0; c < cols; c++) {
+        const a = cellAddr(it, c, r2), v = cellOf(it, a);
+        const x = -L / 2 + (c + 0.5) * cw, y0 = H - (r2 + 1) * ch + t / 2 + 0.002;
+        const parts = [];
+        if (v) {
+          const du = durumOf(v), dolu = du === "bitti" ? 0 : Math.max(0.12, Math.min(1, (Number(v.miktar) || 0) / ((v.min || 100) * 4)));
+          const tm = M.tur[v.tur] || M.tur.diger;
+          if (HM) cubukDemeti(v, x, y0 + 0.03, cw, ch, D).forEach((m) => parts.push(m));
+          else if (v.kap === "kutu") {
+            const bw = cw * 0.72, bh = Math.min(0.15, ch * 0.4), bd = D * 0.72;
+            parts.push(box(bw, bh, bd, M.kutu, x, y0 + bh / 2, 0));
+            if (dolu > 0) parts.push(box(bw * 0.92, bh * 0.85 * dolu, bd * 0.92, tm, x, y0 + (bh * 0.85 * dolu) / 2 + 0.004, 0));
+            parts.push(box(bw * 1.02, 0.008, bd * 1.02, M.kapak, x, y0 + bh + 0.004, 0));
+            parts.push(box(0.035, 0.03, 0.012, M.klips, x - bw * 0.3, y0 + bh - 0.012, bd / 2 + 0.006), box(0.035, 0.03, 0.012, M.klips, x + bw * 0.3, y0 + bh - 0.012, bd / 2 + 0.006));
+          } else {
+            const n = dolu === 0 ? 0 : Math.max(1, Math.ceil(dolu * 3));
+            for (let k = 0; k < n; k++) {
+              const pw = cw * 0.55, ph = 0.06, pd = D * 0.55, px = x + (k % 2 ? 0.03 : -0.03), py = y0 + ph / 2 + k * ph * 0.9;
+              const icx = box(pw * 0.9, ph * 0.75, pd * 0.9, tm, px, py, 0); icx.rotation.y = (k - 1) * 0.12; parts.push(icx);
+              const film = box(pw, ph, pd, M.film, px, py, 0); film.rotation.y = icx.rotation.y; parts.push(film);
+            }
+          }
+          parts.push(box(HM ? cw * 0.5 : cw * 0.8, HM ? 0.03 : 0.014, 0.008, M.durum[du], x, y0 + (HM ? 0.05 : 0.007), D / 2 + 0.006));
+        }
+        // seçili bölme (camgöbeği) ya da az önce hareket gören bölme (sarı) çerçevelenir
+        const vurgu = flash && flash.a === a && Date.now() < flash.until ? 0xf2c400 : selCell === a && sel === it.id ? 0x2bd4ff : null;
+        if (vurgu) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cw * 0.96, ch * 0.92, D * 1.02)), new THREE.LineBasicMaterial({ color: vurgu })); e.position.set(x, y0 + ch * 0.46, 0); grp.add(e); }
+        // içeriğe tıklanınca o bölme açılsın (taşımak için dolabın çerçevesinden tutulur)
+        parts.forEach((m) => { m.userData.cell = a; m.castShadow = false; grp.add(m); });
+      }
+      if (flash && Date.now() < flash.until && !flashTimer) flashTimer = setTimeout(() => { flashTimer = 0; if (view !== "2d") build3d(); }, flash.until - Date.now() + 60);
+      for (let k = 0; k < (it.kova || 0); k++) {
+        // kova: 45 cm çap, 1 m boy (ölçülen)
+        const x = -L / 2 + ((k + 0.5) * L) / it.kova, rr = Math.min(0.225, (L / it.kova) * 0.48), kh = 1.0;
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr * 0.85, kh, 24, 1, true), clear); b.position.set(x, H + kh / 2, 0); grp.add(b);
+        const f = new THREE.Mesh(new THREE.CylinderGeometry(rr * 0.92, rr * 0.85, kh * 0.35, 20), red); f.position.set(x, H + kh * 0.175, 0); grp.add(f);
+      }
+      // dolap numarası yalnız fare üzerindeyken ya da dolap seçiliyken görünür
+      const lb = label(it.name); lb.position.set(0, H + (it.kova ? 1.25 : 0.3), 0); lb.userData.etiket = it.id; lb.visible = it.id === hoverId || it.id === sel; grp.add(lb);
+    } else if (it.type === "koli") {
+      const n = it.stack || 1;
+      for (let k = 0; k < n; k++) grp.add(box(L * 0.98, H * 0.97, D * 0.98, mat(k % 2 ? 0xc49763 : 0xb98b57), 0, H * k + H / 2, 0));
+    } else if (it.type === "kova") {
+      const rr = Math.min(L, D) / 2;
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr * 0.85, H, 24, 1, true), clear); b.position.y = H / 2; grp.add(b);
+      const f = new THREE.Mesh(new THREE.CylinderGeometry(rr * 0.92, rr * 0.85, H * 0.4, 20), red); f.position.y = H * 0.2; grp.add(f);
+      // şeffaf kapak (ağız kenarından taşan), ortada tutamak ve yanlarda tel sap
+      const kapak = new THREE.Mesh(new THREE.CylinderGeometry(rr * 1.04, rr * 1.04, 0.025, 28), mat(0xe8eef3, { transparent: true, opacity: 0.6, roughness: 0.25 }));
+      kapak.position.y = H + 0.012; grp.add(kapak);
+      const kenar = new THREE.Mesh(new THREE.TorusGeometry(rr * 1.03, 0.008, 6, 28), mat(0xd5dde4)); kenar.rotation.x = Math.PI / 2; kenar.position.y = H + 0.002; grp.add(kenar);
+      grp.add(box(rr * 0.6, 0.02, 0.03, mat(0xd5dde4), 0, H + 0.035, 0));
+      const sap = new THREE.Mesh(new THREE.TorusGeometry(rr * 1.02, 0.004, 4, 24, Math.PI), mat(0x9aa3ad, { metalness: 0.7, roughness: 0.35 }));
+      sap.position.y = H - 0.06; sap.rotation.x = -1.3; grp.add(sap);  // sap kapağın üstüne yatık durur
+    } else if (it.type === "bant") {
+      const tm = mat(0xf2c400, { roughness: 0.5 }), w = 0.05, y = 0.004;
+      grp.add(box(L, 0.006, w, tm, 0, y, -D / 2 + w / 2)); grp.add(box(L, 0.006, w, tm, 0, y, D / 2 - w / 2));
+      grp.add(box(w, 0.006, D, tm, -L / 2 + w / 2, y, 0)); grp.add(box(w, 0.006, D, tm, L / 2 - w / 2, y, 0));
+      const lb = label(it.name, "#1b1b1b", "rgba(242,196,0,.95)"); lb.position.set(0, 0.35, 0); lb.scale.set(0.6, 0.22, 1); grp.add(lb);
+    } else if (it.type === "kapi") {
+      grp.add(box(L, 0.01, Math.max(D, 0.1), mat(0x2e7d4f), 0, 0.005, 0));
+    } else {
+      const c = it.type === "engel" ? 0x9aa5b1 : it.type === "tezgah" ? 0xf2f2f0 : 0xc7ced6;
+      grp.add(box(L, H, D, mat(c), 0, H / 2, 0));
+    }
+    world.add(grp);
+  }
+  if (!three.framed) {
+    three.framed = true;
+    const c = new THREE.Vector3(R.w * S / 2, 0.6, R.h * S / 2);
+    three.controls.target.copy(c); three.camera.position.set(c.x - R.w * S * 0.45, Math.max(R.w, R.h) * S * 1.1, c.z + R.h * S * 1.55);
+  }
+  markSel3d(); olc3Ciz();
+  three.sun.target.position.set(R.w * S / 2, 0, R.h * S / 2); three.scene.add(three.sun.target);
+  three.scene.background = new THREE.Color(css("--bg"));
+}
+function loop3d(t) {
+  if (!three || view === "2d") return;
+  const dt = Math.min(0.05, lastT ? ((t || 0) - lastT) / 1000 : 0); lastT = t || 0;
+  if (view === "fp") stepPlayer(dt); else three.controls.update();
+  three.renderer.render(three.scene, three.camera); three.raf = requestAnimationFrame(loop3d);
+}
+function setView(v) {
+  if (v !== "2d" && !window.THREE) { setSave("3D kütüphanesi yüklenemedi", true); return; }
+  const was = view;
+  view = v; held.clear(); look = null;
+  $("b2d").classList.toggle("on", v === "2d"); $("b3d").classList.toggle("on", v === "3d"); $("bfp").classList.toggle("on", v === "fp");
+  svg.style.display = v === "2d" ? "" : "none"; $("view3d").hidden = v === "2d"; $("legend3d").hidden = v === "2d";
+  $("cross").hidden = $("pad").hidden = v !== "fp";
+  $("legend3d").classList.toggle("top", v === "fp");
+  lejantYaz();
+  if (three) cancelAnimationFrame(three.raf);
+  if (v === "2d") return;
+  build3d(); size3d();
+  const c = three.camera;
+  if (v === "fp") {
+    if (was !== "fp") { orbitSaved = { pos: c.position.clone(), target: three.controls.target.clone() }; placePlayer(); }
+    three.controls.enabled = false; c.fov = fpFov; c.updateProjectionMatrix();
+    document.activeElement?.blur?.();  // oklar sayfayı kaydırmasın, yürüsün
+  } else {
+    c.fov = 45; c.updateProjectionMatrix(); c.rotation.order = "XYZ";
+    if (orbitSaved) { c.position.copy(orbitSaved.pos); three.controls.target.copy(orbitSaved.target); orbitSaved = null; }
+    three.controls.enabled = true; three.controls.update();
+  }
+  three.world.children.forEach((o) => { if (o.userData.fpOnly) o.visible = v === "fp"; });
+  lastT = 0; loop3d();
+}
+$("b2d").addEventListener("click", () => setView("2d"));
+$("b3d").addEventListener("click", () => setView("3d"));
+$("bfp").addEventListener("click", () => setView("fp"));
+
+window.addEventListener("beforeunload", () => { if (dirty) flushSave(); });
+renderAll(true);
+boot();
+})();
+</script>
+
+</body></html>

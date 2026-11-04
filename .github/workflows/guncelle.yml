@@ -8,7 +8,7 @@ on:
   workflow_dispatch:        # GitHub sayfasından elle de çalıştırılabilir
   push:                     # depo ikizi değişince beklemeden yayınla
     branches: [main]
-    paths: ['depo-ikizi/**']
+    paths: ['depo-ikizi/**', 'hammadde-ikizi/**']
 
 permissions:
   contents: read

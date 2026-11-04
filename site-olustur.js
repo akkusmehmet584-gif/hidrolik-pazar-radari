@@ -11,7 +11,10 @@ const belge = '<!doctype html><html lang="tr"><head><meta charset="utf-8">' +
 fs.writeFileSync(path.join(hedef, 'index.html'), belge);
 for (const f of ['veri.json', 'ozet.json']) if (fs.existsSync(path.join(kok, f))) fs.copyFileSync(path.join(kok, f), path.join(hedef, f));
 // Bileşen deposu ikizi aynı sitede /depo-ikizi/ altında yayınlanır (tek dosya, kendi içinde tam belge)
-const depo = path.join(kok, 'depo-ikizi', 'index.html');
-if (fs.existsSync(depo)) { fs.mkdirSync(path.join(hedef, 'depo-ikizi'), { recursive: true }); fs.copyFileSync(depo, path.join(hedef, 'depo-ikizi', 'index.html')); }
+// hammadde deposu ikizi de /hammadde-ikizi/ altında
+for (const klasor of ['depo-ikizi', 'hammadde-ikizi']) {
+  const kaynak = path.join(kok, klasor, 'index.html');
+  if (fs.existsSync(kaynak)) { fs.mkdirSync(path.join(hedef, klasor), { recursive: true }); fs.copyFileSync(kaynak, path.join(hedef, klasor, 'index.html')); }
+}
 fs.writeFileSync(path.join(hedef, '.nojekyll'), '');
 console.log('site/ hazır');
