@@ -10,7 +10,7 @@ function W(e,o){e.textContent=JSON.stringify(o);}
 function k(){var b=B(),f=0,w=0;for(var i=0;i<b.length;i++){var o=R(b[i]);if(!o)continue;if(o["@type"]=="WebSite")w=1;if(o["@type"]!="Organization")continue;f=1;
 o["@context"]="https://schema.org";o["@id"]=OID;o.name=AD;o.url=S;o.logo=L;
 var c=[].concat(o.contactPoint||[{}]);for(var j=0;j<c.length;j++){c[j]["@type"]="ContactPoint";c[j].telephone=TEL;c[j].faxNumber=FX;c[j].contactType="customer service";c[j].areaServed="TR";c[j].availableLanguage="tr";delete c[j].contactOption;}
-o.contactPoint=c;o.telephone=TEL;if(o.founders&&!o.founder){o.founder=o.founders;delete o.founders;}W(b[i],o);}
+o.contactPoint=c;o.telephone=TEL;o.foundingDate="2022";o.sameAs=["https://www.facebook.com/profile.php?id=61596057406317","https://www.tiktok.com/@horizonendustri11","https://www.linkedin.com/company/horizon-end%C3%BCstri/"];if(o.founders&&!o.founder){o.founder=o.founders;delete o.founders;}W(b[i],o);}
 if(f&&!w&&location.pathname=="/"){var s=document.createElement("script");s.type="application/ld+json";s.textContent=JSON.stringify({"@context":"https://schema.org","@type":"WebSite","@id":S+"#website","url":S,"name":AD,"inLanguage":"tr-TR","publisher":{"@id":OID}});document.head.appendChild(s);}}
 function T(v){var d=new Date(v);if(isNaN(d))return"";var a=["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];return d.getDate()+" "+a[d.getMonth()]+" "+d.getFullYear();}
 function g(){if(location.pathname.indexOf("/blog/")!==0)return;var b=B(),y=null;for(var i=0;i<b.length;i++){var o=R(b[i]);if(!o)continue;
